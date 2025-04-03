@@ -12,11 +12,9 @@
             {{ encore_entry_script_tags('app') }}
         {% endblock %}
     </head>
-    <body class="bg-[#E8ECEE] min-h-screen">
+    <body class="bg-[#E8ECEE] h-[100dvh] overflow-hidden">
         {% include '_components/header.html.twig' %}
 
-        <main class="container mx-auto">
-            {% block body %}{% endblock %}
-        </main>
+        {% block body %}{% endblock %}
     </body>
 </html>
