@@ -8,10 +8,15 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class CourseController extends AbstractController
 {
-    #[Route('/course/{slug}', name: 'app_course')]
+    #[Route('/course', name: 'app_course_courses')]
     public function index(string $slug): Response
     {
-        return $this->render('course/index.html.twig', [
+        return $this->render('course/index.html.twig');
+    }
+    #[Route('/course/{slug}', name: 'app_course_course')]
+    public function course(string $slug): Response
+    {
+        return $this->render('course/course.html.twig', [
             'courseName' => 'Cours de '.$slug,
             'courseBase' => '/course/'.$slug,
             'activities' => [
@@ -104,6 +109,49 @@ final class CourseController extends AbstractController
                     ],
                 ],
             ],
+        ]);
+    }
+
+    #[Route('/course/{slug}/members', name: 'app_course_members')]
+    public function courseMembers(string $slug): Response
+    {
+        return $this->render('course/members.html.twig', [
+            'courseName' => 'Cours de '.$slug,
+            'courseBase' => '/course/'.$slug,
+            'categories' => [
+                [
+                    'title' => 'Professeurs',
+                    'desc' => 'Ensemble des professeurs du cours',
+                    'members' => [
+                        [
+                            'firstname' => 'Jean',
+                            'lastname' => 'Dupont',
+                            'email' => 'jean@dupont.fr',
+                        ],
+                        [
+                            'firstname' => 'John',
+                            'lastname' => 'Doe',
+                            'email' => 'john@doe.fr',
+                        ]
+                    ],
+                ],
+                [
+                    'title' => 'Étudiants',
+                    'desc' => 'Ensemble des étudiants du cours',
+                    'members' => [
+                        [
+                            'firstname' => 'Jeannette',
+                            'lastname' => 'Dupont',
+                            'email' => 'jean@dupont.fr',
+                        ],
+                        [
+                            'firstname' => 'Jane',
+                            'lastname' => 'Doe',
+                            'email' => 'john@doe.fr',
+                        ]
+                    ],
+                ],
+            ]
         ]);
     }
 }

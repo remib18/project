@@ -1,0 +1,28 @@
+{% extends 'layout.html.twig' %}
+
+{% block title %}Membres du cours {{ courseName }}{% endblock %}
+
+{% block content %}
+
+    <div class="space-y-4">
+        {% for category in categories %}
+            <div class="space-y-2">
+                <div>
+                    <p>{{ category.title }}</p>
+                    <p class="text-xs opacity-80">{{ category.desc }}</p>
+                </div>
+                {% for member in category.members %}
+                    <div class="bg-[#F3F9FB] rounded-[.5rem] px-4 py-3 flex justify-between items-center gap-4 w-full hover:bg-[#37A0C9]/10">
+                        <div class="flex gap-2 items-center">
+                            <div>
+                                <p class="font-medium">{{ member.lastname|upper }} {{ member.firstname }}</p>
+                                <a href="mailto:{{ member.email }}" class="text-sm text-ellipsis line-clamp-2 opacity-80 hover:underline">{{ member.email }}</a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+    </div>
+
+{% endblock %}
