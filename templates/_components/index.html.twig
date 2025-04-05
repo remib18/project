@@ -88,3 +88,19 @@
  ERROR
 {% endif %}
 {% endmacro %}
+
+{# Severity Icon Component #}
+{% macro severityMessageIcon(type, color = 'currentColor', size = "1rem") %}
+{% if type == 'info' %}
+ <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{{ color }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:{{ size }};height:{{ size }}"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+{% elseif type == 'warning' %}
+ <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{{ color }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:{{ size }};height:{{ size }}"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 7v2"/><path d="M12 13h.01"/></svg>
+{% elseif type == 'error' %}
+ <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{{ color }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:{{ size }};height:{{ size }}"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="m14.5 7.5-5 5"/><path d="m9.5 7.5 5 5"/></svg>
+{% else %}
+ <script>
+    alert("Icon type not recognized: {{ type }}");
+ </script>
+ ERROR
+{% endif %}
+{% endmacro %}

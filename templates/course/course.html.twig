@@ -14,9 +14,15 @@
             <div class="space-y-2">
                 <p class="text-sm font-medium">{{ category.title }}</p>
                 {% for ressource in category.resources %}
-                    <a href="{{ ressource.target }}" class="block px-2 py-0.5 rounded-sm text-sm text-[#37A0C9] hover:text-[#3C7186] hover:bg-[#E2EFF4]">
-                        {{ ressource.title }}
-                    </a>
+                    {% if ressource.target is defined %}
+                        <a href="{{ ressource.target }}" class="block px-2 py-0.5 rounded-sm text-sm text-[#37A0C9] hover:text-[#3C7186] hover:bg-[#E2EFF4]">
+                            {{ ressource.title }}
+                        </a>
+                    {% else %}
+                        <p class="block px-2 py-0.5 rounded-sm text-sm opacity-80">
+                            {{ ressource.title }}
+                        </p>
+                    {% endif %}
                 {% endfor %}
             </div>
         {% endfor %}
@@ -76,21 +82,32 @@
                 </div>
                 {% for ressource in category.resources %}
                     <div class="flex w-full gap-2 items-stretch">
-                        <a class="contents" href="{{ ressource.target }}">
-                            <div class="bg-[#F3F9FB] rounded-[.5rem] p-4 flex justify-between items-center gap-4 grow shrink hover:bg-[#37A0C9]/10">
+                        {% if ressource.target is defined %}
+                            <a class="contents" href="{{ ressource.target }}">
+                        {% endif %}
+                            <div class="bg-[#F3F9FB] rounded-[.5rem] p-4 flex justify-between items-center gap-4 grow shrink {{ ressource.type == 'message' ? '' : 'hover:bg-[#37A0C9]/10 cursor-pointer' }}">
                                 <div class="flex gap-2 items-center">
-                                    <div class="bg-[#37A0C9]/10 rounded-md flex items-center justify-center size-[2.625rem] shrink-0">
-                                        {{ comp.ressourceIcon(ressource.icon, '#3C7186') }}
+                                    <div class="rounded-md flex items-center justify-center size-[2.625rem] shrink-0 {{ ressource.type == 'message' and ressource.severity != 'info' ? 'bg-amber-100 text-amber-500' : 'bg-[#37A0C9]/10 text-[#3C7186]' }}">
+                                        {% if ressource.type == 'message' and ressource.severity is defined %}
+                                            {{ comp.severityMessageIcon(ressource.severity) }}
+                                        {% else %}
+                                            {{ comp.ressourceIcon(ressource.icon, '#3C7186') }}
+                                        {% endif %}
                                     </div>
                                     <div>
                                         <p class="font-medium">{{ ressource.title }}</p>
                                         {% if ressource.userDesc is defined %}
                                             <p class="text-sm text-ellipsis line-clamp-2">{{ ressource.userDesc }}</p>
                                         {% endif %}
+                                        {% if ressource.content is defined %}
+                                            <p class="text-sm">{{ ressource.content }}</p>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
-                        </a>
+                        {% if ressource.targer is defined %}
+                            </a>
+                        {% endif %}
                         <button class="px-3 py-2 bg-[#E2EFF4] hover:bg-[#37A0C9] hover:text-white rounded-sm cursor-pointer shrink-0">
                             {{ comp.actionIcon('edit') }}
                         </button>

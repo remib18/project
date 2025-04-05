@@ -55,6 +55,28 @@ final class CourseController extends AbstractController
             ],
             'categories' => [
                 [
+                    'title' => 'Général',
+                    'desc' => 'Informations générales sur l\'UE',
+                    'resources' => [
+                        [
+                            'title' => 'Mode de fonctionnement',
+                            'content' => 'Le cours est divisé en 3 parties : CM, TD et TP',
+                            'type' => 'message',
+                            'icon' => 'file-text',
+                            'severity' => 'info',
+                            'isPinned' => false,
+                        ],
+                        [
+                            'title' => 'S\'il vous plaît',
+                            'content' => 'Merci de ne pas envoyer de message à l\'enseignant en dehors des heures de cours',
+                            'type' => 'message',
+                            'icon' => 'file-text',
+                            'severity' => 'warning',
+                            'isPinned' => false,
+                        ],
+                    ],
+                ],
+                [
                     'title' => 'Cours',
                     'desc' => 'Ensemble des fichiers de cours',
                     'resources' => [
@@ -64,7 +86,6 @@ final class CourseController extends AbstractController
                             'icon' => 'file-text',
                             'isPinned' => false,
                             'target' => '/course/'.$slug.'/resource/xxx',
-                            'action' => 'Voir'
                         ],
                         [
                             'title' => 'CM 2 — xxx',
@@ -73,7 +94,6 @@ final class CourseController extends AbstractController
                             'icon' => 'file-archive',
                             'isPinned' => false,
                             'target' => '/course/'.$slug.'/resource/xxx',
-                            'action' => 'Voir'
                         ],
                         [
                             'title' => 'CM 3 — xxx',
@@ -81,7 +101,6 @@ final class CourseController extends AbstractController
                             'icon' => 'file-unknown',
                             'isPinned' => true,
                             'target' => '/course/'.$slug.'/resource/xxx',
-                            'action' => 'Voir'
                         ],
                     ],
                 ],
@@ -96,7 +115,6 @@ final class CourseController extends AbstractController
                             'icon' => 'upload',
                             'isPinned' => true,
                             'target' => '/course/'.$slug.'/resource/xxx',
-                            'action' => 'Déposer'
                         ],
                         [
                             'title' => 'Devoir 2 — xxx',
@@ -104,7 +122,6 @@ final class CourseController extends AbstractController
                             'icon' => 'upload',
                             'isPinned' => false,
                             'target' => '/course/'.$slug.'/resource/xxx',
-                            'action' => 'Déposer'
                         ],
                     ],
                 ],

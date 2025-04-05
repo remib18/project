@@ -1,5 +1,8 @@
 @import "tailwindcss";
+@source inline("bg-amber-100");
+@source inline("text-amber-500");
 
 html, body {
     @apply w-screen h-screen
 }
+
