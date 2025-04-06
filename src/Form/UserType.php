@@ -30,6 +30,7 @@ class UserType extends AbstractType
             ])
             ->add('password', null, [
                 'required' => false,
+                'mapped' => false,
             ])
             ->add('firstname')
             ->add('lastname')

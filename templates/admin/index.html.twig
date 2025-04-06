@@ -261,6 +261,14 @@
             const endOfUsersMessage = document.getElementById('end-of-users');
             const userSearchInput = document.getElementById('user-search');
 
+            // Définir les rôles disponibles
+            const availableRoles = [
+                { value: 'ROLE_USER', label: 'Utilisateur', default: true, hidden: true },
+                { value: 'ROLE_STUDENT', label: 'Étudiant', default: false, hidden: false },
+                { value: 'ROLE_TEACHER', label: 'Enseignant', default: false, hidden: false },
+                { value: 'ROLE_ADMIN', label: 'Administrateur', default: false, hidden: false }
+            ];
+
             // Ajout des événements pour chaque onglet
             tabs.forEach(tab => {
                 // Événement au clic
@@ -427,32 +435,18 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div class="flex space-x-2">
                                 <button
-                                    aria-label="Voir les détails de l'utilisateur ${user.fullName || user.email}"
-                                    class="text-blue-600 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                    onclick="showUser(${user.id})"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                    </svg>
-                                </button>
-                                <button
                                     aria-label="Modifier l'utilisateur ${user.fullName || user.email}"
-                                    class="text-indigo-600 hover:text-indigo-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                    class="text-indigo-600 hover:text-indigo-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
                                     onclick="editUser(${user.id})"
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
+                                    {{ comp.actionIcon('edit') }}
                                 </button>
                                 <button
                                     aria-label="Supprimer l'utilisateur ${user.fullName || user.email}"
-                                    class="text-red-600 hover:text-red-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                                    onclick="deleteUser(${user.id})"
+                                    class="text-red-600 hover:text-red-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 cursor-pointer"
+                                    onclick="deleteUser(${user.id}, '${user.fullName || user.email}')"
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
+                                    {{ comp.actionIcon('delete') }}
                                 </button>
                             </div>
                         </td>
@@ -481,9 +475,10 @@
                     const roleClass = roleName.includes('ADMIN') ? 'bg-red-100 text-red-800' :
                         roleName.includes('USER') ? 'bg-green-100 text-green-800' :
                             'bg-blue-100 text-blue-800';
+                    const roleLabel = availableRoles.find(r => r.value === roleName)?.label;
 
                     return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${roleClass}">
-                        ${escapeHtml(roleName)}
+                        ${roleLabel}
                     </span>`;
                 }).join(' ');
             }
@@ -531,30 +526,8 @@
             observer.observe(endOfUsersMessage);
 
             // Fonctions de gestion des utilisateurs (à exposer globalement pour les appels onclick)
-            window.showUser = function(userId) {
-                fetch(`/api/user/${userId}`)
-                    .then(response => {
-                        if (!response.ok) throw new Error('Erreur lors de la récupération des détails');
-                        return response.json();
-                    })
-                    .then(data => {
-                        // Implémenter l'affichage des détails (modal, etc.)
-                        console.log('Détails de l\'utilisateur:', data);
-                        alert(`Détails de l'utilisateur ${userId} récupérés`);
-                    })
-                    .catch(error => {
-                        console.error('Erreur:', error);
-                        alert(`Erreur lors de la récupération des détails: ${error.message}`);
-                    });
-            };
-
-            window.editUser = function(userId) {
-                // Rediriger ou afficher un formulaire d'édition
-                alert(`Édition de l'utilisateur ${userId}`);
-            };
-
-            window.deleteUser = function(userId) {
-                if (confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur ${userId} ?`)) {
+            window.deleteUser = function(userId, userFullName) {
+                if (confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur ${userFullName} ?`)) {
                     fetch(`/api/user/${userId}`, {
                         method: 'POST',
                         headers: {
@@ -607,14 +580,6 @@
             const userRolesContainer = document.getElementById('user-roles');
             const formError = document.getElementById('form-error');
 
-            // Définir les rôles disponibles
-            const availableRoles = [
-                { value: 'ROLE_USER', label: 'Utilisateur', default: true },
-                { value: 'ROLE_STUDENT', label: 'Étudiant', default: false },
-                { value: 'ROLE_TEACHER', label: 'Enseignant', default: false },
-                { value: 'ROLE_ADMIN', label: 'Administrateur', default: false }
-            ];
-
             // Fonction pour générer les options de rôles
             function generateRoleOptions(selectedRoles = []) {
                 userRolesContainer.innerHTML = '';
@@ -623,10 +588,13 @@
                     const isChecked = selectedRoles.includes(role.value) || role.default;
 
                     const roleDiv = document.createElement('div');
-                    roleDiv.className = 'flex items-center';
+                    roleDiv.className = `flex items-center`;
+                    if (role.hidden) {
+                        roleDiv.classList.add('hidden');
+                    }
 
                     roleDiv.innerHTML = `
-                        <input type="checkbox" id="role-${role.value}" name="roles[]" value="${role.value}"
+                        <input type="checkbox" id="role-${role.value}" name="roles[]" value="${role.value}" ${role.hidden ? 'disabled' : ''}
                                class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                ${isChecked ? 'checked' : ''}>
                         <label for="role-${role.value}" class="ml-2 block text-sm text-gray-900">
@@ -746,6 +714,11 @@
             async function saveUser(event) {
                 event.preventDefault();
 
+                // Run validation before proceeding
+                if (!validateUserForm()) {
+                    return;
+                }
+
                 // Cacher les messages d'erreur existants
                 hideAllErrors();
 
@@ -825,6 +798,69 @@
                     // Réactiver le bouton
                     saveUserBtn.disabled = false;
                     saveUserBtn.textContent = 'Enregistrer';
+                }
+            }
+
+            // Client-side form validation
+            function validateUserForm() {
+                let isValid = true;
+                hideAllErrors();
+
+                // Email validation
+                const emailField = document.getElementById('user-email');
+                const emailValue = emailField.value.trim();
+                if (!emailValue) {
+                    displayFieldError('email', 'L\'email est obligatoire');
+                    isValid = false;
+                } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+                    displayFieldError('email', 'Veuillez entrer une adresse email valide');
+                    isValid = false;
+                }
+
+                // First name validation
+                const firstnameField = document.getElementById('user-firstname');
+                if (!firstnameField.value.trim()) {
+                    displayFieldError('firstname', 'Le prénom est obligatoire');
+                    isValid = false;
+                }
+
+                // Last name validation
+                const lastnameField = document.getElementById('user-lastname');
+                if (!lastnameField.value.trim()) {
+                    displayFieldError('lastname', 'Le nom est obligatoire');
+                    isValid = false;
+                }
+
+                // Password validation (only in creation mode)
+                const passwordField = document.getElementById('user-password');
+                const userId = document.getElementById('user-id').value;
+                if (!userId && (!passwordField.value || passwordField.value.length < 8)) {
+                    displayFieldError('password', 'Le mot de passe doit contenir au moins 8 caractères');
+                    isValid = false;
+                }
+
+                // Password validation (only in creation mode) — complexity check (at least one special character)
+                if (!userId && !/[!@#$%^&*(),.?":{}|<>]/.test(passwordField.value)) {
+                    displayFieldError('password', 'Le mot de passe doit contenir au moins un caractère spécial');
+                    isValid = false;
+                }
+
+                // Role validation
+                const roleCheckboxes = document.querySelectorAll('input[name="roles[]"]:checked');
+                if (roleCheckboxes.length === 0) {
+                    displayFieldError('roles', 'Veuillez sélectionner au moins un rôle');
+                    isValid = false;
+                }
+
+                return isValid;
+            }
+
+            // Helper for displaying individual field errors
+            function displayFieldError(field, message) {
+                const errorEl = document.getElementById(`${field}-error`);
+                if (errorEl) {
+                    errorEl.textContent = message;
+                    errorEl.classList.remove('hidden');
                 }
             }
 
