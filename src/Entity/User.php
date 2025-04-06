@@ -20,9 +20,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 180)]
     private ?string $email = null;
 
-    #[ORM\Column(length: 180)]
-    private ?string $username = null;
-
     /**
      * @var list<string> The user roles
      */
@@ -71,7 +68,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     /**
      * @see UserInterface
      *
-     * @return list<Role>
+     * @return string[] an array of roles
+     * @see Role
      */
     public function getRoles(): array
     {
@@ -84,15 +82,23 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         // guarantee every user at least has ROLE_USER
         $enumRoles[] = Role::ROLE_USER;
 
-        return array_unique($enumRoles);
+        $stringRoles = array_map(fn(Role $role) => $role->value, $enumRoles);
+
+        return array_unique($stringRoles);
     }
 
     /**
-     * @param list<Role> $roles
+     * @param Role[]|string[] $roles
      */
     public function setRoles(array $roles): static
     {
-        $stringRoles = array_map(fn(Role $role) => $role->value, $roles);
+        $stringRoles = array_map(function (Role|string $role): string {
+            if ($role instanceof Role) {
+                return $role->value;
+            }
+
+            return Role::tryFrom($role)->value ?? throw new \InvalidArgumentException('Invalid role found');
+        }, $roles);
 
         $this->roles = $stringRoles;
 
@@ -173,5 +179,30 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function isGranted(Role $role): bool
     {
         return in_array($role, $this->getRoles());
+    }
+
+    /**
+     * Return the user identifier.
+     * This is the same as getUserIdentifier() but is used for compatibility with some Symfony components.
+     * @legacy
+     * @return string
+     */
+    public function getUsername(): string
+    {
+        return $this->getUserIdentifier();
+    }
+
+    /**
+     * Magic method to get properties dynamically.
+     * @param $name string the name of the property to get
+     * @return string the value of the property
+     * @throws Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException if the property does not exist
+     */
+    public function __get(string $name)
+    {
+        if ('username' === $name) {
+            return $this->getUserIdentifier();
+        }
+        throw new Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException("Undefined property: " . $name);
     }
 }
