@@ -1,0 +1,843 @@
+{% extends 'layout.html.twig' %}
+{% import '_components/index.html.twig' as comp %}
+
+{% block title %}Administration{% endblock %}
+
+{% block content %}
+
+    <h1 class="text-2xl font-bold mb-6">Administration</h1>
+
+    {# Container des onglets #}
+    <div>
+        {# Liste des onglets #}
+        <div
+                role="tablist"
+                aria-label="Sections de contenu"
+                class="flex border-b border-gray-300 mb-4"
+        >
+            <button
+                    id="tab-1"
+                    role="tab"
+                    aria-selected="true"
+                    aria-controls="panel-1"
+                    tabindex="0"
+                    class="py-2 px-4 border-b-2 border-[#37A0C9] font-medium text-[#37A0C9] focus:outline-none focus:ring-2 focus:ring-[#37A0C9] focus:ring-offset-2"
+            >
+                Unités d&apos;enseignement
+            </button>
+            <button
+                    id="tab-2"
+                    role="tab"
+                    aria-selected="false"
+                    aria-controls="panel-2"
+                    tabindex="-1"
+                    class="py-2 px-4 border-b-2 border-transparent font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#37A0C9] focus:ring-offset-2"
+            >
+                Utilisateurs
+            </button>
+        </div>
+
+        {# Panneaux de contenu des onglets #}
+        <div id="panel-1" role="tabpanel" aria-labelledby="tab-1" tabindex="0" class="focus:outline-none">
+            <div class="p-4 bg-gray-50 rounded-md">
+                <div class="mb-4 flex justify-between items-center">
+                    <h2 class="text-xl font-semibold">Liste des cours</h2>
+                    <div class="relative flex gap-4">
+                        <input type="text" id="course-search" placeholder="Rechercher un cours"
+                               class="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               aria-label="Rechercher un cours">
+                        <div class="absolute left-3 top-3.5 text-gray-400">
+                            {{ comp.actionIcon('search') }}
+                        </div>
+                        <button
+                                id="add-course-btn"
+                                class="bg-[#37A0C9] text-white px-3 py-2 rounded-md flex items-center hover:bg-[#2c8aa8] focus:outline-none focus:ring-2 focus:ring-[#37A0C9] focus:ring-offset-2 flex gap-2 items-center"
+                                aria-label="Ajouter un cours"
+                        >
+                            {{ comp.actionIcon('add-folder') }}
+                            Ajouter
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white border border-gray-200 rounded-md" aria-label="Liste des cours">
+                        <thead>
+                        <tr class="bg-gray-100">
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titre</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Professeurs</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody id="course-table-body">
+                        <!-- Les cours seront chargés ici par JavaScript -->
+                        <tr>
+                            <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                                <div class="flex justify-center items-center gap-2">
+                                    {{ comp.actionIcon('loader') }}
+                                    Chargement des cours... (pas encore implémenté)
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Loader pour la pagination -->
+                <div id="pagination-loader" class="hidden py-4 text-center">
+                    <div class="flex justify-center items-center gap-2">
+                        {{ comp.actionIcon('loader') }}
+                        Chargement des cours supplémentaires...
+                    </div>
+                </div>
+
+                <!-- Message de fin de liste -->
+                <div id="end-of-course" class="hidden py-4 text-center text-gray-500">
+                    Tous les cours ont été chargés
+                </div>
+            </div>
+        </div>
+        <div id="panel-2" role="tabpanel" aria-labelledby="tab-2" tabindex="0" class="hidden focus:outline-none">
+            <div class="p-4 bg-gray-50 rounded-md">
+                <div class="mb-4 flex justify-between items-center">
+                    <h2 class="text-xl font-semibold">Liste des utilisateurs</h2>
+                    <div class="relative flex gap-4">
+                        <input type="text" id="user-search" placeholder="Rechercher un utilisateur"
+                               class="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               aria-label="Rechercher un utilisateur">
+                        <div class="absolute left-3 top-3.5 text-gray-400">
+                            {{ comp.actionIcon('search') }}
+                        </div>
+                        <button
+                                id="add-user-btn"
+                                class="bg-[#37A0C9] text-white px-3 py-2 rounded-md flex items-center hover:bg-[#2c8aa8] focus:outline-none focus:ring-2 focus:ring-[#37A0C9] focus:ring-offset-2 flex gap-2 items-center"
+                                aria-label="Ajouter un utilisateur"
+                        >
+                            {{ comp.actionIcon('add-user') }}
+                            Ajouter
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white border border-gray-200 rounded-md" aria-label="Liste des utilisateurs">
+                        <thead>
+                        <tr class="bg-gray-100">
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom complet</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rôles</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody id="users-table-body">
+                        <!-- Les utilisateurs seront chargés ici par JavaScript -->
+                        <tr>
+                            <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                                <div class="flex justify-center items-center gap-2">
+                                    {{ comp.actionIcon('loader') }}
+                                    Chargement des utilisateurs...
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Loader pour la pagination -->
+                <div id="pagination-loader" class="hidden py-4 text-center">
+                    <div class="flex justify-center items-center gap-2">
+                        {{ comp.actionIcon('loader') }}
+                        Chargement des utilisateurs supplémentaires...
+                    </div>
+                </div>
+
+                <!-- Message de fin de liste -->
+                <div id="end-of-users" class="hidden py-4 text-center text-gray-500">
+                    Tous les utilisateurs ont été chargés
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pour ajouter/modifier un utilisateur -->
+    <div id="user-modal" class="fixed inset-0 bg-gray-500/75 flex items-center justify-center hidden z-50" role="dialog" aria-labelledby="user-modal-title" aria-modal="true">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden" role="document">
+            <!-- En-tête du modal -->
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 id="user-modal-title" class="text-lg font-medium text-gray-900">Ajouter un utilisateur</h3>
+                <button id="close-modal-btn" class="text-gray-400 hover:text-gray-500" aria-label="Fermer">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Corps du modal avec le formulaire -->
+            <div class="px-6 py-4">
+                <form id="user-form">
+                    <input type="hidden" id="user-id" name="id" value="">
+                    <input type="hidden" id="csrf-token" name="_token" value="">
+
+                    <!-- Message d'erreur -->
+                    <div id="form-error" class="mb-4 text-red-500 hidden"></div>
+
+                    <!-- Champ email -->
+                    <div class="mb-4">
+                        <label for="user-email" class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-red-500">*</span></label>
+                        <input type="email" id="user-email" name="email" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <div class="text-red-500 text-sm mt-1 hidden" id="email-error"></div>
+                    </div>
+
+                    <!-- Champ prénom -->
+                    <div class="mb-4">
+                        <label for="user-firstname" class="block text-sm font-medium text-gray-700 mb-1">Prénom <span class="text-red-500">*</span></label>
+                        <input type="text" id="user-firstname" name="firstname" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <div class="text-red-500 text-sm mt-1 hidden" id="firstname-error"></div>
+                    </div>
+
+                    <!-- Champ nom -->
+                    <div class="mb-4">
+                        <label for="user-lastname" class="block text-sm font-medium text-gray-700 mb-1">Nom <span class="text-red-500">*</span></label>
+                        <input type="text" id="user-lastname" name="lastname" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <div class="text-red-500 text-sm mt-1 hidden" id="lastname-error"></div>
+                    </div>
+
+                    <!-- Champ mot de passe (visible uniquement lors de la création) -->
+                    <div class="mb-4" id="password-field">
+                        <label for="user-password" class="block text-sm font-medium text-gray-700 mb-1">Mot de passe <span class="text-red-500">*</span></label>
+                        <input type="password" id="user-password" name="password" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <div class="text-red-500 text-sm mt-1 hidden" id="password-error"></div>
+                    </div>
+
+                    <!-- Sélection des rôles -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Rôles <span class="text-red-500">*</span></label>
+                        <div class="space-y-2" id="user-roles">
+                            <!-- Les rôles seront ajoutés dynamiquement ici -->
+                        </div>
+                        <div class="text-red-500 text-sm mt-1 hidden" id="roles-error"></div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Pied du modal avec les boutons d'action -->
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-2">
+                <button id="cancel-btn" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    Annuler
+                </button>
+                <button id="save-user-btn" class="px-4 py-2 bg-[#37A0C9] text-white rounded-md hover:bg-[#2c8aa8] focus:outline-none focus:ring-2 focus:ring-[#37A0C9] focus:ring-offset-2">
+                    Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+
+            // Configuration pour la pagination
+            const userState = {
+                users: [],
+                page: 1,
+                limit: 20,
+                loading: false,
+                hasMore: true,
+                searchTerm: '',
+                selectedTab: 'tab-1'
+            };
+
+            // Sélection des éléments
+            const tabs = document.querySelectorAll('[role="tab"]');
+            const panels = document.querySelectorAll('[role="tabpanel"]');
+            const usersTableBody = document.getElementById('users-table-body');
+            const paginationLoader = document.getElementById('pagination-loader');
+            const endOfUsersMessage = document.getElementById('end-of-users');
+            const userSearchInput = document.getElementById('user-search');
+
+            // Ajout des événements pour chaque onglet
+            tabs.forEach(tab => {
+                // Événement au clic
+                tab.addEventListener('click', changeTabs);
+
+                // Événement au clavier
+                tab.addEventListener('keydown', handleKeyNavigation);
+            });
+
+            // Récupération de l'onglet sélectionné depuis l'URL s'il existe
+            const params = new URLSearchParams(window.location.search);
+            let selectedTab = params.get('t');
+            const tabElement = document.getElementById(selectedTab);
+            if (selectedTab && tabElement) {
+                const event = new Event('click');
+                tabElement.dispatchEvent(event);
+            }
+
+            // Fonction de changement d'onglet
+            function changeTabs(e) {
+                const targetTab = e.currentTarget;
+                const targetPanelId = targetTab.getAttribute('aria-controls');
+                const targetPanel = document.getElementById(targetPanelId);
+
+                // Vérification que le panneau cible existe
+                if (!targetPanel) {
+                    console.error(`Le panneau avec l'ID ${targetPanelId} n'a pas été trouvé`);
+                    return;
+                }
+
+                // Mise à jour de l'état des onglets
+                tabs.forEach(tab => {
+                    const selected = tab === targetTab;
+                    const tabSelector = tab.getAttribute('id');
+                    tab.setAttribute('aria-selected', selected);
+                    tab.setAttribute('tabindex', selected ? '0' : '-1');
+
+                    // Mise à jour des styles et mise à jour de l'URL
+                    if (selected) {
+                        history.pushState(null, '', `?t=${tabSelector}`);
+                        tab.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                        tab.classList.add('border-[#37A0C9]', 'text-[#37A0C9]');
+                    } else {
+                        tab.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                        tab.classList.remove('border-[#37A0C9]', 'text-[#37A0C9]');
+                    }
+                });
+
+                // Mise à jour de l'affichage des panneaux
+                panels.forEach(panel => {
+                    panel.classList.toggle('hidden', panel.id !== targetPanelId);
+                });
+
+                // Si l'onglet des utilisateurs est sélectionné et que les utilisateurs n'ont pas encore été chargés
+                if (targetTab.id === 'tab-2' && userState.users.length === 0) {
+                    fetchUsers();
+                }
+            }
+
+            // Gestion de la navigation au clavier
+            function handleKeyNavigation(e) {
+                const currentIndex = Array.from(tabs).indexOf(e.currentTarget);
+
+                switch (e.key) {
+                    case 'ArrowRight':
+                        // Passer à l'onglet suivant (ou revenir au premier)
+                        const nextIndex = (currentIndex + 1) % tabs.length;
+                        tabs[nextIndex].focus();
+                        tabs[nextIndex].click();
+                        break;
+                    case 'ArrowLeft':
+                        // Passer à l'onglet précédent (ou aller au dernier)
+                        const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+                        tabs[prevIndex].focus();
+                        tabs[prevIndex].click();
+                        break;
+                    case 'Home':
+                        // Aller au premier onglet
+                        tabs[0].focus();
+                        tabs[0].click();
+                        break;
+                    case 'End':
+                        // Aller au dernier onglet
+                        tabs[tabs.length - 1].focus();
+                        tabs[tabs.length - 1].click();
+                        break;
+                }
+            }
+
+            // Fonction pour récupérer les utilisateurs depuis l'API
+            async function fetchUsers() {
+                if (userState.loading || !userState.hasMore) return;
+
+                try {
+                    userState.loading = true;
+
+                    // Afficher le loader approprié
+                    if (userState.page === 1) {
+                        // Premier chargement, le loader est déjà dans le tableau
+                    } else {
+                        paginationLoader.classList.remove('hidden');
+                    }
+
+                    // Construction de l'URL avec les paramètres de pagination
+                    const offset = (userState.page - 1) * userState.limit;
+                    const url = `/api/user?limit=${userState.limit}&offset=${offset}&search=${encodeURIComponent(userState.searchTerm)}`;
+
+                    const response = await fetch(url);
+
+                    if (!response.ok) {
+                        throw new Error(`Erreur HTTP: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    // Mise à jour de l'état
+                    if (userState.page === 1) {
+                        userState.users = data;
+                    } else {
+                        userState.users = [...userState.users, ...data];
+                    }
+
+                    userState.hasMore = data.length === userState.limit;
+                    userState.page++;
+
+                    // Mise à jour de l'interface
+                    renderUsers();
+
+                } catch (error) {
+                    console.error('Erreur lors de la récupération des utilisateurs:', error);
+                    displayError('Une erreur est survenue lors du chargement des utilisateurs');
+                } finally {
+                    userState.loading = false;
+                    paginationLoader.classList.add('hidden');
+
+                    // Afficher le message de fin si il n'y a plus d'utilisateurs à charger
+                    if (!userState.hasMore && userState.users.length > 0) {
+                        endOfUsersMessage.classList.remove('hidden');
+                    }
+                }
+            }
+
+            // Fonction pour afficher les utilisateurs dans le tableau
+            function renderUsers() {
+                if (userState.users.length === 0) {
+                    usersTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                                Aucun utilisateur trouvé
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                usersTableBody.innerHTML = userState.users.map((user, index) => `
+                    <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}" id="user-row-${user.id}">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${user.id}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(user.fullName || 'N/A')}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(user.email)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${formatRoles(user.roles)}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div class="flex space-x-2">
+                                <button
+                                    aria-label="Voir les détails de l'utilisateur ${user.fullName || user.email}"
+                                    class="text-blue-600 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                    onclick="showUser(${user.id})"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </button>
+                                <button
+                                    aria-label="Modifier l'utilisateur ${user.fullName || user.email}"
+                                    class="text-indigo-600 hover:text-indigo-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                    onclick="editUser(${user.id})"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                </button>
+                                <button
+                                    aria-label="Supprimer l'utilisateur ${user.fullName || user.email}"
+                                    class="text-red-600 hover:text-red-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                    onclick="deleteUser(${user.id})"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            // Fonction utilitaire pour échapper le HTML
+            function escapeHtml(unsafe) {
+                if (unsafe === null || unsafe === undefined) return '';
+                return unsafe
+                    .toString()
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            // Fonction pour formater les rôles des utilisateurs
+            function formatRoles(roles) {
+                if (!roles || !Array.isArray(roles)) return 'N/A';
+
+                return roles.map(role => {
+                    const roleName = typeof role === 'string' ? role : role.value;
+                    const roleClass = roleName.includes('ADMIN') ? 'bg-red-100 text-red-800' :
+                        roleName.includes('USER') ? 'bg-green-100 text-green-800' :
+                            'bg-blue-100 text-blue-800';
+
+                    return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${roleClass}">
+                        ${escapeHtml(roleName)}
+                    </span>`;
+                }).join(' ');
+            }
+
+            // Fonction pour afficher une erreur
+            function displayError(message) {
+                usersTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-4 text-center text-red-500">
+                            ${escapeHtml(message)}
+                        </td>
+                    </tr>
+                `;
+            }
+
+            // Gestion de la recherche utilisateur
+            userSearchInput.addEventListener('input', debounce(function() {
+                userState.searchTerm = this.value;
+                userState.page = 1;
+                userState.hasMore = true;
+                userState.users = [];
+                fetchUsers();
+            }, 300));
+
+            // Fonction utilitaire de debounce
+            function debounce(func, wait) {
+                let timeout;
+                return function() {
+                    const context = this;
+                    const args = arguments;
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => {
+                        func.apply(context, args);
+                    }, wait);
+                };
+            }
+
+            // Observer l'intersection pour charger plus d'utilisateurs au défilement
+            const observer = new IntersectionObserver((entries) => {
+                if (entries[0].isIntersecting && userState.selectedTab === 'tab-2') {
+                    fetchUsers();
+                }
+            }, { threshold: 0.5 });
+
+            observer.observe(endOfUsersMessage);
+
+            // Fonctions de gestion des utilisateurs (à exposer globalement pour les appels onclick)
+            window.showUser = function(userId) {
+                fetch(`/api/user/${userId}`)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Erreur lors de la récupération des détails');
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Implémenter l'affichage des détails (modal, etc.)
+                        console.log('Détails de l\'utilisateur:', data);
+                        alert(`Détails de l'utilisateur ${userId} récupérés`);
+                    })
+                    .catch(error => {
+                        console.error('Erreur:', error);
+                        alert(`Erreur lors de la récupération des détails: ${error.message}`);
+                    });
+            };
+
+            window.editUser = function(userId) {
+                // Rediriger ou afficher un formulaire d'édition
+                alert(`Édition de l'utilisateur ${userId}`);
+            };
+
+            window.deleteUser = function(userId) {
+                if (confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur ${userId} ?`)) {
+                    fetch(`/api/user/${userId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ tokens.delete_user }}'
+                        },
+                        body: JSON.stringify({ _token: '{{ tokens.delete_user }}' })
+                    })
+                        .then(response => {
+                            if (!response.ok) throw new Error('Erreur lors de la suppression');
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (data.status === 'success') {
+                                // Supprimer l'utilisateur du tableau et de l'état
+                                const userIndex = userState.users.findIndex(u => u.id === userId);
+                                if (userIndex !== -1) {
+                                    userState.users.splice(userIndex, 1);
+                                    renderUsers();
+                                }
+
+                                // Supprimer visuellement la ligne
+                                const userRow = document.getElementById(`user-row-${userId}`);
+                                if (userRow) {
+                                    userRow.classList.add('transition-opacity', 'duration-300', 'opacity-0');
+                                    setTimeout(() => {
+                                        userRow.remove();
+                                    }, 300);
+                                }
+                            } else {
+                                throw new Error(data.message || 'Erreur lors de la suppression');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Erreur:', error);
+                            alert(`Erreur lors de la suppression: ${error.message}`);
+                        });
+                }
+            };
+
+            // Gestion du modal utilisateur
+            const userModal = document.getElementById('user-modal');
+            const userForm = document.getElementById('user-form');
+            const userModalTitle = document.getElementById('user-modal-title');
+            const addUserBtn = document.getElementById('add-user-btn');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            const cancelBtn = document.getElementById('cancel-btn');
+            const saveUserBtn = document.getElementById('save-user-btn');
+            const passwordField = document.getElementById('password-field');
+            const userRolesContainer = document.getElementById('user-roles');
+            const formError = document.getElementById('form-error');
+
+            // Définir les rôles disponibles
+            const availableRoles = [
+                { value: 'ROLE_USER', label: 'Utilisateur', default: true },
+                { value: 'ROLE_STUDENT', label: 'Étudiant', default: false },
+                { value: 'ROLE_TEACHER', label: 'Enseignant', default: false },
+                { value: 'ROLE_ADMIN', label: 'Administrateur', default: false }
+            ];
+
+            // Fonction pour générer les options de rôles
+            function generateRoleOptions(selectedRoles = []) {
+                userRolesContainer.innerHTML = '';
+
+                availableRoles.forEach(role => {
+                    const isChecked = selectedRoles.includes(role.value) || role.default;
+
+                    const roleDiv = document.createElement('div');
+                    roleDiv.className = 'flex items-center';
+
+                    roleDiv.innerHTML = `
+                        <input type="checkbox" id="role-${role.value}" name="roles[]" value="${role.value}"
+                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                               ${isChecked ? 'checked' : ''}>
+                        <label for="role-${role.value}" class="ml-2 block text-sm text-gray-900">
+                            ${role.label}
+                        </label>
+                    `;
+
+                    userRolesContainer.appendChild(roleDiv);
+                });
+            }
+
+            // Fonction pour ouvrir le modal en mode création
+            function openCreateUserModal() {
+                // Réinitialiser le formulaire
+                userForm.reset();
+                document.getElementById('user-id').value = '';
+                document.getElementById('csrf-token').value = '{{ tokens.create_user }}';
+
+                // Définir le titre
+                userModalTitle.textContent = 'Ajouter un utilisateur';
+
+                // Afficher le champ mot de passe
+                passwordField.classList.remove('hidden');
+
+                // Générer les options de rôles
+                generateRoleOptions();
+
+                // Afficher le modal
+                userModal.classList.remove('hidden');
+
+                // Cacher les messages d'erreur
+                hideAllErrors();
+            }
+
+            // Fonction pour ouvrir le modal en mode édition
+            async function openEditUserModal(userId) {
+                try {
+                    // Réinitialiser le formulaire
+                    userForm.reset();
+                    hideAllErrors();
+
+                    // Afficher un indicateur de chargement
+                    userModalTitle.textContent = 'Chargement...';
+
+                    // Récupérer les données de l'utilisateur
+                    const response = await fetch(`/api/user/${userId}`);
+                    if (!response.ok) throw new Error('Erreur lors de la récupération des données utilisateur');
+
+                    const data = await response.json();
+                    const user = data.user;
+
+                    // Remplir le formulaire
+                    document.getElementById('user-id').value = user.id;
+                    document.getElementById('user-email').value = user.email;
+                    document.getElementById('user-firstname').value = user.firstname;
+                    document.getElementById('user-lastname').value = user.lastname;
+                    document.getElementById('csrf-token').value = '{{ tokens.update_user }}';
+
+                    // Cacher le champ mot de passe en mode édition
+                    passwordField.classList.add('hidden');
+                    document.getElementById('user-password').removeAttribute('required');
+
+                    // Définir le titre
+                    userModalTitle.textContent = `Modifier l'utilisateur: ${user.fullName || user.email}`;
+
+                    // Générer les options de rôles avec les rôles de l'utilisateur sélectionnés
+                    const userRoles = user.roles.map(role => typeof role === 'object' ? role.value : role);
+                    generateRoleOptions(userRoles);
+
+                    // Afficher le modal
+                    userModal.classList.remove('hidden');
+                } catch (error) {
+                    console.error('Erreur:', error);
+                    alert(`Erreur lors de la récupération des données: ${error.message}`);
+                }
+            }
+
+            // Fonction pour fermer le modal
+            function closeUserModal() {
+                userModal.classList.add('hidden');
+                hideAllErrors();
+            }
+
+            // Fonction pour cacher tous les messages d'erreur
+            function hideAllErrors() {
+                formError.classList.add('hidden');
+                formError.textContent = '';
+
+                // Cacher les erreurs individuelles des champs
+                document.querySelectorAll('[id$="-error"]').forEach(el => {
+                    el.classList.add('hidden');
+                    el.textContent = '';
+                });
+            }
+
+            // Fonction pour afficher les erreurs du formulaire
+            function displayFormErrors(errors) {
+                // Afficher l'erreur globale si présente
+                if (errors.global) {
+                    formError.textContent = errors.global;
+                    formError.classList.remove('hidden');
+                }
+
+                // Afficher les erreurs par champ
+                Object.keys(errors).forEach(field => {
+                    if (field !== 'global') {
+                        const errorEl = document.getElementById(`${field}-error`);
+                        if (errorEl) {
+                            errorEl.textContent = errors[field];
+                            errorEl.classList.remove('hidden');
+                        }
+                    }
+                });
+            }
+
+            // Fonction pour enregistrer l'utilisateur
+            async function saveUser(event) {
+                event.preventDefault();
+
+                // Cacher les messages d'erreur existants
+                hideAllErrors();
+
+                // Récupérer les données du formulaire
+                const userId = document.getElementById('user-id').value;
+                const isEditing = userId !== '';
+
+                // Vérifier qu'au moins un rôle est sélectionné
+                const roleCheckboxes = document.querySelectorAll('input[name="roles[]"]:checked');
+                if (roleCheckboxes.length === 0) {
+                    displayFormErrors({ roles: 'Veuillez sélectionner au moins un rôle' });
+                    return;
+                }
+
+                // Construire les données du formulaire
+                const formData = {
+                    email: document.getElementById('user-email').value,
+                    firstname: document.getElementById('user-firstname').value,
+                    lastname: document.getElementById('user-lastname').value,
+                    roles: Array.from(roleCheckboxes).map(cb => cb.value),
+                    _token: document.getElementById('csrf-token').value
+                };
+
+                // Ajouter le mot de passe uniquement en création
+                if (!isEditing) {
+                    formData.password = document.getElementById('user-password').value;
+                }
+
+                try {
+                    // Désactiver le bouton pendant l'envoi
+                    saveUserBtn.disabled = true;
+                    saveUserBtn.textContent = 'Enregistrement...';
+
+                    // Définir l'URL en fonction du mode (création ou édition)
+                    const url = isEditing ? `/api/user/${userId}/edit` : '/api/user/new';
+
+                    // Envoyer la requête
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': formData._token
+                        },
+                        body: JSON.stringify(formData)
+                    });
+
+                    const data = await response.json();
+
+                    if (data.status === 'success') {
+                        // Fermer le modal
+                        closeUserModal();
+
+                        // Rafraîchir la liste des utilisateurs
+                        userState.page = 1;
+                        userState.users = [];
+                        userState.hasMore = true;
+                        fetchUsers();
+                    } else {
+                        // Afficher les erreurs
+                        const errors = {
+                            global: 'Veuillez corriger les erreurs dans le formulaire'
+                        };
+
+                        // Traiter les erreurs spécifiques aux champs si disponibles
+                        if (data.form && data.form.errors) {
+                            Object.keys(data.form.errors).forEach(field => {
+                                errors[field] = data.form.errors[field];
+                            });
+                        }
+
+                        displayFormErrors(errors);
+                    }
+                } catch (error) {
+                    console.error('Erreur:', error);
+                    displayFormErrors({ global: `Une erreur est survenue: ${error.message}` });
+                } finally {
+                    // Réactiver le bouton
+                    saveUserBtn.disabled = false;
+                    saveUserBtn.textContent = 'Enregistrer';
+                }
+            }
+
+            // Événements pour le modal et le formulaire
+            addUserBtn.addEventListener('click', openCreateUserModal);
+            closeModalBtn.addEventListener('click', closeUserModal);
+            cancelBtn.addEventListener('click', closeUserModal);
+            saveUserBtn.addEventListener('click', saveUser);
+
+            // Exposer la fonction d'édition pour les boutons d'action
+            window.editUser = function(userId) {
+                openEditUserModal(userId);
+            };
+        });
+    </script>
+{% endblock %}

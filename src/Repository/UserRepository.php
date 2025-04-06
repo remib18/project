@@ -33,28 +33,23 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         $this->getEntityManager()->flush();
     }
 
-    //    /**
-    //     * @return User[] Returns an array of User objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('u')
-    //            ->andWhere('u.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('u.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
+    /**
+     * Find users by search term with pagination.
+     * @param string $searchTerm The search term to filter users.
+     * @param int $limit The maximum number of users to return.
+     * @param int $offset The offset for pagination.
+     * @return array|object[] An array of User entities matching the search term.
+     */
+    public function findBySearchTerm(string $searchTerm, int $limit, int $offset): array
+    {
+        $qb = $this->createQueryBuilder('u')
+            ->where('u.firstname LIKE :searchTerm OR u.email LIKE :searchTerm OR u.lastname LIKE :searchTerm')
+            ->setParameter('searchTerm', '%' . $searchTerm . '%')
+            ->setMaxResults($limit)
+            ->setFirstResult($offset)
+            ->orderBy('u.lastname', 'DESC')
+            ->addOrderBy('u.firstname', 'DESC');
 
-    //    public function findOneBySomeField($value): ?User
-    //    {
-    //        return $this->createQueryBuilder('u')
-    //            ->andWhere('u.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+        return $qb->getQuery()->getResult();
+    }
 }
