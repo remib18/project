@@ -1,6 +1,35 @@
 {# Header Component #}
 <header class="bg-[#37A0C9] p-4 w-full flex justify-between items-center ">
-    <span class="text-xl text-white font-bold">
-        Mooodle
-    </span>
+    <div class="flex items-center gap-4">
+        <span class="text-xl text-white font-bold">
+            Mooodle
+        </span>
+
+        <nav aria-label="Primary Navigation">
+            <menu role="menubar" class="flex gap-1">
+                <li>
+                    <a
+                            href="/"
+                            class="py-2 px-3 hover:bg-[#3C7186] text-white rounded data-disabled:cursor-not-allowed data-disabled:text-white/60 data-disabled:bg-transparent"
+                            {{ app.request.attributes.get('_route') == 'app_home' ? 'data-disabled aria-disabled="true"' : '' }}
+                    >Tableau de bord</a>
+                </li>
+                <li>
+                    <a
+                            href="/course"
+                            class="py-2 px-3 hover:bg-[#3C7186] text-white rounded data-disabled:cursor-not-allowed data-disabled:text-white/60 data-disabled:bg-transparent"
+                            {{ app.request.attributes.get('_route') == 'app_course_courses' ? 'data-disabled aria-disabled="true"' : '' }}
+                    >Mes cours</a>
+                </li>
+                <li>
+                    <a
+                            href="/admin"
+                            class="py-2 px-3 hover:bg-[#3C7186] text-white rounded data-disabled:cursor-not-allowed data-disabled:text-white/60 data-disabled:bg-transparent"
+                            {{ app.request.attributes.get('_route') == 'app_admin' ? 'data-disabled aria-disabled="true"' : '' }}
+                    >Administration</a>
+                </li>
+            </menu>
+        </nav>
+    </div>
+
 </header>
