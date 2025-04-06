@@ -8,7 +8,7 @@
     <h1 class="text-2xl font-bold mb-6">Administration</h1>
 
     {# Container des onglets #}
-    <div class="">
+    <div>
         {# Liste des onglets #}
         <div
                 role="tablist"
@@ -40,7 +40,63 @@
         {# Panneaux de contenu des onglets #}
         <div id="panel-1" role="tabpanel" aria-labelledby="tab-1" tabindex="0" class="focus:outline-none">
             <div class="p-4 bg-gray-50 rounded-md">
-                Contenu de l'onglet 1
+                <div class="mb-4 flex justify-between items-center">
+                    <h2 class="text-xl font-semibold">Liste des cours</h2>
+                    <div class="relative flex gap-4">
+                        <input type="text" id="course-search" placeholder="Rechercher un cours"
+                               class="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               aria-label="Rechercher un cours">
+                        <div class="absolute left-3 top-3.5 text-gray-400">
+                            {{ comp.actionIcon('search') }}
+                        </div>
+                        <button
+                                id="add-course-btn"
+                                class="bg-[#37A0C9] text-white px-3 py-2 rounded-md flex items-center hover:bg-[#2c8aa8] focus:outline-none focus:ring-2 focus:ring-[#37A0C9] focus:ring-offset-2 flex gap-2 items-center"
+                                aria-label="Ajouter un cours"
+                        >
+                            {{ comp.actionIcon('add-folder') }}
+                            Ajouter
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white border border-gray-200 rounded-md" aria-label="Liste des cours">
+                        <thead>
+                        <tr class="bg-gray-100">
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titre</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Professeurs</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody id="course-table-body">
+                        <!-- Les cours seront chargés ici par JavaScript -->
+                        <tr>
+                            <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                                <div class="flex justify-center items-center gap-2">
+                                    {{ comp.actionIcon('loader') }}
+                                    Chargement des cours... (pas encore implémenté)
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Loader pour la pagination -->
+                <div id="pagination-loader" class="hidden py-4 text-center">
+                    <div class="flex justify-center items-center gap-2">
+                        {{ comp.actionIcon('loader') }}
+                        Chargement des cours supplémentaires...
+                    </div>
+                </div>
+
+                <!-- Message de fin de liste -->
+                <div id="end-of-course" class="hidden py-4 text-center text-gray-500">
+                    Tous les cours ont été chargés
+                </div>
             </div>
         </div>
         <div id="panel-2" role="tabpanel" aria-labelledby="tab-2" tabindex="0" class="hidden focus:outline-none">
@@ -56,12 +112,10 @@
                         </div>
                         <button
                                 id="add-user-btn"
-                                class="bg-[#37A0C9] text-white px-3 py-2 rounded-md flex items-center hover:bg-[#2c8aa8] focus:outline-none focus:ring-2 focus:ring-[#37A0C9] focus:ring-offset-2"
+                                class="bg-[#37A0C9] text-white px-3 py-2 rounded-md flex items-center hover:bg-[#2c8aa8] focus:outline-none focus:ring-2 focus:ring-[#37A0C9] focus:ring-offset-2 flex gap-2 items-center"
                                 aria-label="Ajouter un utilisateur"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                            </svg>
+                            {{ comp.actionIcon('add-user') }}
                             Ajouter
                         </button>
                     </div>
@@ -82,11 +136,8 @@
                         <!-- Les utilisateurs seront chargés ici par JavaScript -->
                         <tr>
                             <td colspan="6" class="px-6 py-4 text-center text-gray-500">
-                                <div class="flex justify-center items-center">
-                                    <svg class="animate-spin h-5 w-5 mr-3 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
+                                <div class="flex justify-center items-center gap-2">
+                                    {{ comp.actionIcon('loader') }}
                                     Chargement des utilisateurs...
                                 </div>
                             </td>
@@ -97,11 +148,8 @@
 
                 <!-- Loader pour la pagination -->
                 <div id="pagination-loader" class="hidden py-4 text-center">
-                    <div class="flex justify-center items-center">
-                        <svg class="animate-spin h-5 w-5 mr-3 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
+                    <div class="flex justify-center items-center gap-2">
+                        {{ comp.actionIcon('loader') }}
                         Chargement des utilisateurs supplémentaires...
                     </div>
                 </div>
@@ -193,6 +241,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+
             // Configuration pour la pagination
             const userState = {
                 users: [],
@@ -221,6 +270,15 @@
                 tab.addEventListener('keydown', handleKeyNavigation);
             });
 
+            // Récupération de l'onglet sélectionné depuis l'URL s'il existe
+            const params = new URLSearchParams(window.location.search);
+            let selectedTab = params.get('t');
+            const tabElement = document.getElementById(selectedTab);
+            if (selectedTab && tabElement) {
+                const event = new Event('click');
+                tabElement.dispatchEvent(event);
+            }
+
             // Fonction de changement d'onglet
             function changeTabs(e) {
                 const targetTab = e.currentTarget;
@@ -236,11 +294,13 @@
                 // Mise à jour de l'état des onglets
                 tabs.forEach(tab => {
                     const selected = tab === targetTab;
+                    const tabSelector = tab.getAttribute('id');
                     tab.setAttribute('aria-selected', selected);
                     tab.setAttribute('tabindex', selected ? '0' : '-1');
 
-                    // Mise à jour des styles
+                    // Mise à jour des styles et mise à jour de l'URL
                     if (selected) {
+                        history.pushState(null, '', `?t=${tabSelector}`);
                         tab.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
                         tab.classList.add('border-[#37A0C9]', 'text-[#37A0C9]');
                     } else {
