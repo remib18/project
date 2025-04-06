@@ -1,15 +1,73 @@
 {% extends 'layout.html.twig' %}
 
-{% block title %}Hello HomeController!{% endblock %}
+{% block title %}Tableau de bord{% endblock %}
 
 {% block content %}
-<div class="example-wrapper">
-    <h1>Hello {{ controller_name }}! ✅</h1>
+<!-- Calendrier -->
+    <div class="bg-white p-6 rounded-xl shadow-md mb-6">
+        <h2 class="text-lg font-semibold mb-4">Calendrier</h2>
+        <div class="grid md:grid-cols-2 gap-6">
 
-    This friendly message is coming from:
-    <ul>
-        <li>Your controller at <code>/Users/remibernard/dev/classes/M_S2_WE4A/sites/project/src/Controller/HomeController.php</code></li>
-        <li>Your template at <code>/Users/remibernard/dev/classes/M_S2_WE4A/sites/project/templates/home/index.html.twig</code></li>
-    </ul>
-</div>
+<!-- En ce moment (colonne de gauche) -->
+            <div class="bg-gray-100 p-4 rounded-xl shadow-sm h-full">
+                <h3 class="font-semibold text-gray-600 mb-3">En ce moment :</h3>
+                {% for course in nowCourses %}
+                    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+<!-- Image du cours -->
+                        <div class="w-full h-40 bg-gray-200">
+                            <img src="/image/{{ course.name }}.png" alt="Image du cours {{ course.name }}" class="object-cover w-full h-full">
+                        </div>
+<!-- Infos du cours -->
+                        <div class="p-4">
+                            <strong class="text-lg block mb-1">{{ course.name }}</strong>
+                            <span class="text-sm text-gray-500 block">
+                            en {{ course.room }} de {{ course.start_time }} à {{ course.end_time }}.
+                        </span>
+                            <p class="text-sm text-gray-600 mt-2">{{ course.description }}</p>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+<!-- À venir (colonne de droite)-->
+            <div class="bg-gray-100 p-4 rounded-xl shadow-sm h-full">
+                <h3 class="font-semibold text-gray-600 mb-3">À venir :</h3>
+                <div class="space-y-3">
+                    {% for course in upcomingCourses %}
+                        <div class="bg-white p-3 rounded-lg shadow-sm">
+                            <strong>{{ course.name }}</strong>
+                            <span class="text-sm text-gray-500"> en {{ course.room }} de {{ course.start_time }} à {{ course.end_time }}.</span><br>
+                            <span class="text-sm text-gray-600">{{ course.description }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+<!-- Activité récente -->
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h2 class="text-lg font-semibold mb-4">Activités récentes :</h2>
+            <ul class="space-y-4">
+                {% for activity in recentActivities %}
+                    <li class="flex items-center justify-between bg-gray-100 p-3 rounded-lg shadow-sm">
+                        <div class="flex items-center gap-3">
+                            {% if activity.type == 'user' %}
+                                {% set parts = activity.user|split(' ') %}
+                                {% set firstInitial = parts|length > 0 ? parts[0]|slice(0,1) : '' %}
+                                {% set lastInitial = parts|length > 1 ? parts[1]|slice(0,1) : '' %}
+                                <div class="bg-gray-300 text-sm rounded-full w-8 h-8 flex items-center justify-center font-semibold">
+                                    {{ firstInitial ~ lastInitial }}
+                                </div>
+                                <span>{{ activity.user }} {{ activity.action }}</span>
+                            {% else %}
+                                <div class="text-yellow-500 text-lg">⚠️</div>
+                                <span>{{ activity.message }}</span>
+                            {% endif %}
+                        </div>
+                        <a href="#" class="bg-[#37A0C9] hover:bg-[#2e8cb3] text-white px-4 py-1 rounded-md text-sm">Voir</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
 {% endblock %}
