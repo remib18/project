@@ -5,31 +5,110 @@
             Mooodle
         </span>
 
-        <nav aria-label="Primary Navigation">
-            <menu role="menubar" class="flex gap-1">
-                <li>
-                    <a
-                            href="/home"
-                            class="py-2 px-3 hover:bg-[#3C7186] text-white rounded data-disabled:cursor-not-allowed data-disabled:text-white/60 data-disabled:bg-transparent"
-                            {{ app.request.attributes.get('_route') == 'app_home' ? 'data-disabled aria-disabled="true"' : '' }}
-                    >Tableau de bord</a>
-                </li>
-                <li>
-                    <a
-                            href="/course"
-                            class="py-2 px-3 hover:bg-[#3C7186] text-white rounded data-disabled:cursor-not-allowed data-disabled:text-white/60 data-disabled:bg-transparent"
-                            {{ app.request.attributes.get('_route') == 'app_course_courses' ? 'data-disabled aria-disabled="true"' : '' }}
-                    >Mes cours</a>
-                </li>
-                <li>
-                    <a
-                            href="/admin"
-                            class="py-2 px-3 hover:bg-[#3C7186] text-white rounded data-disabled:cursor-not-allowed data-disabled:text-white/60 data-disabled:bg-transparent"
-                            {{ app.request.attributes.get('_route') == 'app_admin' ? 'data-disabled aria-disabled="true"' : '' }}
-                    >Administration</a>
-                </li>
-            </menu>
-        </nav>
+        {% if is_granted('ROLE_USER') %}
+            <nav aria-label="Primary Navigation">
+                <menu role="menubar" class="flex gap-1">
+                    <li>
+                        <a
+                                href="{{ path('app_home') }}"
+                                class="py-2 px-3 hover:bg-[#3C7186] text-white rounded data-disabled:cursor-not-allowed data-disabled:text-white/60 data-disabled:bg-transparent"
+                                {{ app.request.attributes.get('_route') == 'app_home' ? 'data-disabled aria-disabled="true"' : '' }}
+                        >Tableau de bord</a>
+                    </li>
+                    <li>
+                        <a
+                                href="{{ path('app_course_courses') }}"
+                                class="py-2 px-3 hover:bg-[#3C7186] text-white rounded data-disabled:cursor-not-allowed data-disabled:text-white/60 data-disabled:bg-transparent"
+                                {{ app.request.attributes.get('_route') == 'app_course_courses' ? 'data-disabled aria-disabled="true"' : '' }}
+                        >Mes cours</a>
+                    </li>
+                    {% if is_granted('ROLE_ADMIN') %}
+                        <li>
+                            <a
+                                    href="{{ path('app_admin') }}"
+                                    class="py-2 px-3 hover:bg-[#3C7186] text-white rounded data-disabled:cursor-not-allowed data-disabled:text-white/60 data-disabled:bg-transparent"
+                                    {{ app.request.attributes.get('_route') == 'app_admin' ? 'data-disabled aria-disabled="true"' : '' }}
+                            >Administration</a>
+                        </li>
+                    {% endif %}
+                </menu>
+            </nav>
+        {% endif %}
     </div>
 
+    {% if app.user %}
+        <div class="relative inline-block text-left" id="avatarDropdown">
+            <!-- Accessible Avatar Button -->
+            <button type="button"
+                    id="dropdownButton"
+                    class="w-8 h-8 text-white bg-[#3C7186] rounded-full flex items-center justify-center focus:outline-none cursor-pointer"
+                    aria-haspopup="true"
+                    aria-expanded="false">
+                {% set parts = app.user.fullname|split(' ') %}
+                {% set firstInitial = parts|length > 0 ? parts[0]|slice(0,1) : '' %}
+                {% set lastInitial = parts|length > 1 ? parts[1]|slice(0,1) : '' %}
+                <span class="text-sm font-bold">
+          {{ firstInitial ~ lastInitial }}
+        </span>
+            </button>
+
+            <!-- Dropdown Menu (Hidden by default) -->
+            <div id="dropdownMenu"
+                 class="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white hidden z-10"
+                 role="menu"
+                 aria-labelledby="dropdownButton">
+                <div class="py-1">
+                    <a href="{{ path('app_profile') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                       role="menuitem" tabindex="0">Profile</a>
+                    <a href="{{ path('app_logout') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                       role="menuitem" tabindex="0">Logout</a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
 </header>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const dropdownButton = document.getElementById('dropdownButton');
+        const dropdownMenu = document.getElementById('dropdownMenu');
+
+        // Helper: Toggle dropdown visibility and update ARIA attribute.
+        const toggleDropdown = (show) => {
+            if (show === undefined) {
+                show = dropdownMenu.classList.contains('hidden');
+            }
+            dropdownMenu.classList.toggle('hidden', !show);
+            dropdownButton.setAttribute('aria-expanded', show);
+        };
+
+        // Toggle dropdown on button click
+        dropdownButton.addEventListener('click', function(event) {
+            event.stopPropagation();
+            toggleDropdown();
+        });
+
+        // Keyboard support for button: toggle on Enter or Space.
+        dropdownButton.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                toggleDropdown();
+            }
+        });
+
+        // When the menu is open, allow closing with the Escape key.
+        dropdownMenu.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                toggleDropdown(false);
+                dropdownButton.focus();
+            }
+        });
+
+        // Close the dropdown when clicking outside
+        document.addEventListener('click', function() {
+            if (!dropdownMenu.classList.contains('hidden')) {
+                toggleDropdown(false);
+            }
+        });
+    });
+</script>
