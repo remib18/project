@@ -211,6 +211,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         if ('username' === $name) {
             return $this->getUserIdentifier();
         }
+        if ('_username' === $name) {
+            return $this->getUserIdentifier();
+        }
         throw new Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException("Undefined property: " . $name);
     }
 }
