@@ -17,35 +17,35 @@ final class CourseController extends AbstractController
                     'name' => 'WE4A',
                     'description' => 'Technologies et programmation WEB',
                     'image' => '/image/we4a.png',
-                    'link' => '/course/we4a',
+                    'target' => '/course/we4a',
                     'isFavorite' => true
                 ],
                 [
                     'name' => 'SY43',
                     'description' => 'Android Development.',
                     'image' => '/image/sy43.png',
-                    'link' => '/course/sy43',
+                    'target' => '/course/sy43',
                     'isFavorite' => false
                 ],
                 [
                     'name' => 'RS40',
                     'description' => 'Réseaux et Cybersécurité niveau 1.',
                     'image' => '/image/rs40.jpg',
-                    'link' => '/course/rs40',
+                    'target' => '/course/rs40',
                     'isFavorite' => false
                 ],
                 [
                     'name' => 'IT41',
                     'description' => 'Classical and Quantum Algorithms.',
                     'image' => '/image/it41.jpg',
-                    'link' => '/course/it41',
+                    'target' => '/course/it41',
                     'isFavorite' => false
                 ],
                 [
                     'name' => 'LE03',
                     'description' => 'Anglais pratique et examen international.',
                     'image' => '/image/le03.jpg',
-                    'link' => '/course/le03',
+                    'target' => '/course/le03',
                     'isFavorite' => true
                 ],
             ],
