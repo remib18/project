@@ -11,8 +11,50 @@ final class CourseController extends AbstractController
     #[Route('/course', name: 'app_course_courses')]
     public function index(): Response
     {
-        return $this->render('course/index.html.twig');
+        return $this->render('course/index.html.twig', [
+            'courses' => [
+                [
+                    'name' => 'WE4A',
+                    'description' => 'Technologies et programmation WEB',
+                    'image' => '/image/we4a.png',
+                    'target' => '/course/we4a',
+                    'isFavorite' => true
+                ],
+                [
+                    'name' => 'SY43',
+                    'description' => 'Android Development.',
+                    'image' => '/image/sy43.png',
+                    'target' => '/course/sy43',
+                    'isFavorite' => false
+                ],
+                [
+                    'name' => 'RS40',
+                    'description' => 'Réseaux et Cybersécurité niveau 1.',
+                    'image' => '/image/rs40.jpg',
+                    'target' => '/course/rs40',
+                    'isFavorite' => false
+                ],
+                [
+                    'name' => 'IT41',
+                    'description' => 'Classical and Quantum Algorithms.',
+                    'image' => '/image/it41.jpg',
+                    'target' => '/course/it41',
+                    'isFavorite' => false
+                ],
+                [
+                    'name' => 'LE03',
+                    'description' => 'Anglais pratique et examen international.',
+                    'image' => '/image/le03.jpg',
+                    'target' => '/course/le03',
+                    'isFavorite' => true
+                ],
+            ],
+        ]);
     }
+
+
+
+
     #[Route('/course/{slug}', name: 'app_course_course')]
     public function course(string $slug): Response
     {
