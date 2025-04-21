@@ -52,9 +52,6 @@ final class CourseController extends AbstractController
         ]);
     }
 
-
-
-
     #[Route('/course/{slug}', name: 'app_course_course')]
     public function course(string $slug): Response
     {
