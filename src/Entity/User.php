@@ -3,10 +3,13 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: '`user`')]
@@ -45,6 +48,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     #[ORM\Column]
     private ?string $password = null;
+
+    /**
+     * @var Collection<int, CourseGroup>
+     */
+    #[ORM\ManyToMany(targetEntity: CourseGroup::class, mappedBy: 'members')]
+    private Collection $memberInGroups;
+
+    public function __construct()
+    {
+        $this->memberInGroups = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -204,7 +218,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      * Magic method to get properties dynamically.
      * @param $name string the name of the property to get
      * @return string the value of the property
-     * @throws Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException if the property does not exist
+     * @throws NoSuchPropertyException if the property does not exist
      */
     public function __get(string $name)
     {
@@ -214,6 +228,34 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         if ('_username' === $name) {
             return $this->getUserIdentifier();
         }
-        throw new Symfony\Component\PropertyAccess\Exception\NoSuchPropertyException("Undefined property: " . $name);
+        throw new NoSuchPropertyException("Undefined property: " . $name);
     }
+
+    /**
+     * @return Collection<int, CourseGroup>
+     */
+    public function getMemberInGroups(): Collection
+    {
+        return $this->memberInGroups;
+    }
+
+    public function addMembershipToGroup(CourseGroup $group): static
+    {
+        if (!$this->memberInGroups->contains($group)) {
+            $this->memberInGroups->add($group);
+            $group->addMember($this);
+        }
+
+        return $this;
+    }
+
+    public function removeMembershipToGroup(CourseGroup $group): static
+    {
+        if ($this->memberInGroups->removeElement($group)) {
+            $group->removeMember($this);
+        }
+
+        return $this;
+    }
+
 }

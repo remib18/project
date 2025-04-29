@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Entity\CourseUnit;
 use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -51,5 +52,39 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
             ->addOrderBy('u.firstname', 'DESC');
 
         return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * Get course members separated by role
+     *
+     * @param CourseUnit $courseUnit
+     * @return array{professors: array<User>, students: array<User>}
+     */
+    public function getMembersByRole(CourseUnit $courseUnit): array
+    {
+        $members = [
+            'professors' => [],
+            'students' => []
+        ];
+
+        // Get all groups in the course unit
+        $groups = $courseUnit->getGroups();
+
+        foreach ($groups as $group) {
+            $groupMembers = $group->getMembers();
+
+            foreach ($groupMembers as $member) {
+                $roles = $member->getRoles();
+                $roleCategoryKey = in_array('ROLE_TEACHER', $roles) ? 'professors' : 'students';
+
+                $members[$roleCategoryKey][] = $member;
+            }
+        }
+
+        // Remove duplicates
+        $members['professors'] = array_unique($members['professors'], SORT_REGULAR);
+        $members['students'] = array_unique($members['students'], SORT_REGULAR);
+
+        return $members;
     }
 }
