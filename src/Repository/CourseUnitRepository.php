@@ -7,6 +7,7 @@ use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\Persistence\ManagerRegistry;
+use Exception;
 
 /**
  * @extends ServiceEntityRepository<CourseUnit>
@@ -46,14 +47,14 @@ class CourseUnitRepository extends ServiceEntityRepository
      *
      * @param string $slug
      * @return CourseUnit
-     * @throws \Exception If course unit with the given slug is not found
+     * @throws Exception If course unit with the given slug is not found
      */
     public function findBySlugOrFail(string $slug): CourseUnit
     {
         $courseUnit = $this->findOneBy(['slug' => $slug]);
 
         if (!$courseUnit) {
-            throw new \Exception(sprintf('Course with slug "%s" not found', $slug));
+            throw new Exception(sprintf('Course with slug "%s" not found', $slug));
         }
 
         return $courseUnit;
@@ -77,5 +78,23 @@ class CourseUnitRepository extends ServiceEntityRepository
             ->setParameter('slug', $slug)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * Find course units by search term
+     * @param string $searchTerm
+     * @param mixed $limit
+     * @param int $offset
+     * @return void
+     */
+    public function findBySearchTerm(string $searchTerm, mixed $limit, int $offset)
+    {
+        $qb = $this->createQueryBuilder('cu')
+            ->where('cu.name LIKE :searchTerm')
+            ->setParameter('searchTerm', '%' . $searchTerm . '%')
+            ->setMaxResults($limit)
+            ->setFirstResult($offset);
+
+        return $qb->getQuery()->getResult();
     }
 }
