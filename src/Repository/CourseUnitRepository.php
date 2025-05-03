@@ -11,11 +11,6 @@ use Exception;
 
 /**
  * @extends ServiceEntityRepository<CourseUnit>
- *
- * @method CourseUnit|null find($id, $lockMode = null, $lockVersion = null)
- * @method CourseUnit|null findOneBy(array $criteria, array $orderBy = null)
- * @method CourseUnit[]    findAll()
- * @method CourseUnit[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
  */
 class CourseUnitRepository extends ServiceEntityRepository
 {
@@ -25,7 +20,7 @@ class CourseUnitRepository extends ServiceEntityRepository
     }
 
     /**
-     * Find course units accessible to a specific user
+     * Find course units accessible to a specific user with eager loading of related entities
      *
      * @param User $user The current user
      * @return array<CourseUnit>
@@ -34,6 +29,7 @@ class CourseUnitRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('cu')
             ->distinct()
+            ->select('cu, g')
             ->innerJoin('cu.groups', 'g')
             ->innerJoin('g.members', 'm', Join::WITH, 'm = :user')
             ->setParameter('user', $user)
@@ -43,7 +39,7 @@ class CourseUnitRepository extends ServiceEntityRepository
     }
 
     /**
-     * Find a course unit by slug with validation
+     * Find a course unit by slug with validation and eager loading of related entities
      *
      * @param string $slug
      * @return CourseUnit
@@ -51,7 +47,13 @@ class CourseUnitRepository extends ServiceEntityRepository
      */
     public function findBySlugOrFail(string $slug): CourseUnit
     {
-        $courseUnit = $this->findOneBy(['slug' => $slug]);
+        $courseUnit = $this->createQueryBuilder('cu')
+            ->select('cu, g')
+            ->leftJoin('cu.groups', 'g')
+            ->where('cu.slug = :slug')
+            ->setParameter('slug', $slug)
+            ->getQuery()
+            ->getOneOrNullResult();
 
         if (!$courseUnit) {
             throw new Exception(sprintf('Course with slug "%s" not found', $slug));
@@ -61,7 +63,7 @@ class CourseUnitRepository extends ServiceEntityRepository
     }
 
     /**
-     * Find a course unit accessible to a specific user by slug
+     * Find a course unit accessible to a specific user by slug with eager loading
      *
      * @param string $slug The course unit slug
      * @param User $user The current user
@@ -71,8 +73,10 @@ class CourseUnitRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('cu')
             ->distinct()
+            ->select('cu, g, a')
             ->innerJoin('cu.groups', 'g')
             ->innerJoin('g.members', 'm', Join::WITH, 'm = :user')
+            ->leftJoin('cu.activities', 'a')
             ->where('cu.slug = :slug')
             ->setParameter('user', $user)
             ->setParameter('slug', $slug)
@@ -81,20 +85,24 @@ class CourseUnitRepository extends ServiceEntityRepository
     }
 
     /**
-     * Find course units by search term
+     * Find course units by search term with pagination and eager loading
+     *
      * @param string $searchTerm
-     * @param mixed $limit
+     * @param int $limit
      * @param int $offset
-     * @return void
+     * @return array<CourseUnit>
      */
-    public function findBySearchTerm(string $searchTerm, mixed $limit, int $offset)
+    public function findBySearchTerm(string $searchTerm, int $limit, int $offset): array
     {
-        $qb = $this->createQueryBuilder('cu')
-            ->where('cu.name LIKE :searchTerm')
+        return $this->createQueryBuilder('cu')
+            ->select('cu, g')
+            ->leftJoin('cu.groups', 'g')
+            ->where('cu.name LIKE :searchTerm OR cu.description LIKE :searchTerm')
             ->setParameter('searchTerm', '%' . $searchTerm . '%')
             ->setMaxResults($limit)
-            ->setFirstResult($offset);
-
-        return $qb->getQuery()->getResult();
+            ->setFirstResult($offset)
+            ->orderBy('cu.name', 'ASC')
+            ->getQuery()
+            ->getResult();
     }
 }

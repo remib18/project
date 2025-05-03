@@ -6,3 +6,20 @@ html, body {
     @apply w-screen h-screen
 }
 
+.member-teacher {
+    background-color: rgba(55, 160, 201, 0.1); /* Lighter version of the primary blue color */
+}
+
+/* Add a visual divider between teachers and students if they're in sequence */
+.member-student:first-of-type:not(:first-child) {
+    border-top: 2px solid #e5e7eb; /* Thicker border to separate teacher/student sections */
+}
+
+/* Optional: Add a subtle hover effect */
+.member-teacher:hover {
+    background-color: rgba(55, 160, 201, 0.2);
+}
+
+.member-student:hover {
+    background-color: rgba(243, 244, 246, 0.8);
+}

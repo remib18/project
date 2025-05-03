@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Entity\User;
 use App\Form\UserType;
+use App\Mapper\UserMapper;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -19,6 +20,11 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 #[Route('/api/user')]
 final class UserController extends AbstractController
 {
+    public function __construct(
+        private readonly UserMapper $userMapper
+    )
+    {}
+
     #[Route(name: 'app_user_index', methods: ['GET'])]
     public function index(Request $request, UserRepository $userRepository): Response
     {
@@ -30,14 +36,12 @@ final class UserController extends AbstractController
         // Limiter pour éviter les abus
         $limit = min($limit, 100);
 
-        // Recherche des utilisateurs avec pagination
-        if (!empty($searchTerm)) {
-            $users = $userRepository->findBySearchTerm($searchTerm, $limit, $offset);
-        } else {
-            $users = $userRepository->findBy([], ['lastname' => 'DESC', 'firstname' => 'DESC'], $limit, $offset);
-        }
+        // Recherche des utilisateurs
+        $users = $userRepository->findBySearchTerm($searchTerm, $limit, $offset);
 
-        return $this->json($users, Response::HTTP_OK);
+        $userDTOs = $this->userMapper->mapUsersToDTO($users);
+
+        return $this->json($userDTOs, Response::HTTP_OK);
     }
 
     #[Route('/new', name: 'app_user_new', methods: ['GET', 'POST'])]
