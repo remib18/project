@@ -6,6 +6,7 @@ use App\Repository\CourseUnitRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: CourseUnitRepository::class)]
 class CourseUnit
@@ -16,27 +17,46 @@ class CourseUnit
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\NotBlank(message: 'Course name cannot be blank')]
+    #[Assert\Length(max: 255, maxMessage: 'Course name cannot be longer than {{ limit }} characters')]
     private ?string $name = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 1000)]
+    #[Assert\NotBlank(message: 'Course description cannot be blank')]
+    #[Assert\Length(max: 1000, maxMessage: 'Course description cannot be longer than {{ limit }} characters')]
     private ?string $description = null;
 
     #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Url(message: 'Image must be a valid URL')]
+    #[Assert\Length(max: 255, maxMessage: 'Image URL cannot be longer than {{ limit }} characters')]
     private ?string $image = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 255, unique: true)]
+    #[Assert\NotBlank(message: 'Course slug cannot be blank')]
+    #[Assert\Regex(pattern: '/^[a-z0-9-]+$/', message: 'Course slug can only contain lowercase letters, numbers, and hyphens')]
+    #[Assert\Length(max: 255, maxMessage: 'Course slug cannot be longer than {{ limit }} characters')]
     private ?string $slug = null;
 
     /**
      * @var Collection<int, CourseGroup>
      */
-    #[ORM\OneToMany(targetEntity: CourseGroup::class, mappedBy: 'unit', orphanRemoval: true)]
+    #[ORM\OneToMany(
+        targetEntity: CourseGroup::class,
+        mappedBy: 'unit',
+        cascade: ['persist', 'remove'],
+        orphanRemoval: true
+    )]
     private Collection $groups;
 
     /**
      * @var Collection<int, CourseActivity>
      */
-    #[ORM\OneToMany(targetEntity: CourseActivity::class, mappedBy: 'courseUnit', orphanRemoval: true)]
+    #[ORM\OneToMany(
+        targetEntity: CourseActivity::class,
+        mappedBy: 'courseUnit',
+        cascade: ['persist', 'remove'],
+        orphanRemoval: true
+    )]
     private Collection $activities;
 
     public function __construct()
@@ -55,7 +75,7 @@ class CourseUnit
         return $this->name;
     }
 
-    public function setName(string $name): static
+    public function setName(string $name): self
     {
         $this->name = $name;
 
@@ -67,7 +87,7 @@ class CourseUnit
         return $this->description;
     }
 
-    public function setDescription(string $description): static
+    public function setDescription(string $description): self
     {
         $this->description = $description;
 
@@ -79,7 +99,7 @@ class CourseUnit
         return $this->image;
     }
 
-    public function setImage(?string $image): static
+    public function setImage(?string $image): self
     {
         $this->image = $image;
 
@@ -91,7 +111,7 @@ class CourseUnit
         return $this->slug;
     }
 
-    public function setSlug(string $slug): static
+    public function setSlug(string $slug): self
     {
         $this->slug = $slug;
 
@@ -106,7 +126,7 @@ class CourseUnit
         return $this->groups;
     }
 
-    public function addGroup(CourseGroup $group): static
+    public function addGroup(CourseGroup $group): self
     {
         if (!$this->groups->contains($group)) {
             $this->groups->add($group);
@@ -116,7 +136,7 @@ class CourseUnit
         return $this;
     }
 
-    public function removeGroup(CourseGroup $group): static
+    public function removeGroup(CourseGroup $group): self
     {
         if ($this->groups->removeElement($group)) {
             // set the owning side to null (unless already changed)
@@ -136,7 +156,7 @@ class CourseUnit
         return $this->activities;
     }
 
-    public function addActivity(CourseActivity $activity): static
+    public function addActivity(CourseActivity $activity): self
     {
         if (!$this->activities->contains($activity)) {
             $this->activities->add($activity);
@@ -146,7 +166,7 @@ class CourseUnit
         return $this;
     }
 
-    public function removeActivity(CourseActivity $activity): static
+    public function removeActivity(CourseActivity $activity): self
     {
         if ($this->activities->removeElement($activity)) {
             // set the owning side to null (unless already changed)

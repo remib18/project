@@ -1,0 +1,985 @@
+<?php
+
+namespace App\Controller;
+
+use App\DTO\Request\CourseGroupRequest;
+use App\DTO\Request\CourseUnitRequest;
+use App\DTO\Request\GroupMembershipRequest;
+use App\Entity\CourseGroup;
+use App\Entity\CourseSchedule;
+use App\Entity\CourseUnit;
+use App\Entity\Role;
+use App\Mapper\CourseMapper;
+use App\Repository\CourseGroupRepository;
+use App\Repository\CourseUnitRepository;
+use App\Repository\UserRepository;
+use App\Service\RequestValidator;
+use DateTime;
+use Doctrine\ORM\EntityManagerInterface;
+use Exception;
+use InvalidArgumentException;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Csrf\CsrfToken;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\String\Slugger\SluggerInterface;
+use Symfony\Component\Validator\ConstraintViolation;
+use Symfony\Component\Validator\ConstraintViolationList;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
+
+#[IsGranted('IS_AUTHENTICATED_FULLY')]
+#[Route('/api/course')]
+final class CourseApiController extends AbstractApiController
+{
+
+    public function __construct(
+        private readonly CsrfTokenManagerInterface $csrfTokenManager,
+        private readonly CourseMapper $courseMapper
+    ) {}
+
+    /**
+     * Return all the course units and their groups
+     * Only accessible for administrators
+     *
+     * @param Request $request
+     * @param CourseUnitRepository $courseUnitRepository
+     * @return JsonResponse
+     */
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/', name: 'app_course_api', methods: ['GET'])]
+    public function index(Request $request, CourseUnitRepository $courseUnitRepository): JsonResponse
+    {
+        try {
+            // Get pagination parameters
+            $limit = $request->query->getInt('limit', 20);
+            $offset = $request->query->getInt('offset', 0);
+            $searchTerm = $request->query->get('search', '');
+
+            // Limit to prevent abuse
+            $limit = min($limit, 100);
+
+            // Get course units with pagination
+            if (!empty($searchTerm)) {
+                $courseUnits = $courseUnitRepository->findBySearchTerm($searchTerm, $limit, $offset);
+            } else {
+                $courseUnits = $courseUnitRepository->findBy([], ['name' => 'ASC'], $limit, $offset);
+            }
+
+            // Format the course units for the API response
+            $formattedCourseUnits = $this->courseMapper->mapCourseUnitsToDTO($courseUnits);
+
+            return $this->createSuccessResponse($formattedCourseUnits);
+        } catch (Exception $e) {
+            return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Get a specific course unit
+     * Only accessible for administrators
+     *
+     * @param string $slug
+     * @param CourseUnitRepository $courseUnitRepository
+     * @return JsonResponse
+     */
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/{slug}', name: 'app_course_api_get', methods: ['GET'])]
+    public function get(
+        string $slug,
+        CourseUnitRepository $courseUnitRepository
+    ): JsonResponse {
+        try {
+            // Find the course unit or throw an exception
+            $courseUnit = $courseUnitRepository->findBySlugOrFail($slug);
+
+            $courseDTO = $this->courseMapper->mapCourseUnitToDTO($courseUnit);
+
+            return $this->createSuccessResponse($courseDTO);
+        } catch (Exception $e) {
+            return $this->createErrorResponse($e->getMessage(), Response::HTTP_NOT_FOUND);
+        }
+    }
+
+    /**
+     * Create a new course unit
+     * Only accessible for administrators
+     *
+     * @param Request $request
+     * @param EntityManagerInterface $entityManager
+     * @param ValidatorInterface $validator
+     * @param SluggerInterface $slugger
+     * @return JsonResponse
+     */
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/', name: 'app_course_api_create', methods: ['POST'])]
+    public function create(
+        Request $request,
+        EntityManagerInterface $entityManager,
+        ValidatorInterface $validator,
+        SluggerInterface $slugger,
+        RequestValidator $requestValidator
+    ): JsonResponse {
+        try {
+            // Validate request
+            $validation = $requestValidator->validateRequestDto(
+                $request,
+                CourseUnitRequest::class,
+                'course_creation'
+            );
+
+            if (!$validation['isValid']) {
+                return $this->createErrorResponse(
+                    'Validation failed',
+                    Response::HTTP_BAD_REQUEST,
+                    $validation['errors']
+                );
+            }
+
+            /** @var CourseUnitRequest $dto */
+            $dto = $validation['dto'];
+
+            // Create new course unit
+            $courseUnit = new CourseUnit();
+            $courseUnit->setName($dto->name);
+            $courseUnit->setDescription($dto->description);
+            $courseUnit->setImage($dto->image);
+
+            // Generate slug from name
+            $slug = $slugger->slug(strtolower($dto->name))->toString();
+            $courseUnit->setSlug($slug);
+
+            // Validate entity
+            $errors = $validator->validate($courseUnit);
+            if (count($errors) > 0) {
+                return $this->createValidationErrorResponse($errors);
+            }
+
+            // Save to database
+            $entityManager->persist($courseUnit);
+            $entityManager->flush();
+
+            // Return success response with created course
+            $courseDTO = $this->courseMapper->mapCourseUnitToDTO($courseUnit);
+
+            return $this->createSuccessResponse($courseDTO);
+        } catch (Exception $e) {
+            return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Edit a course unit
+     * Only accessible for administrators
+     *
+     * @param string $slug
+     * @param Request $request
+     * @param CourseUnitRepository $courseUnitRepository
+     * @param EntityManagerInterface $entityManager
+     * @param ValidatorInterface $validator
+     * @return JsonResponse
+     */
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/{slug}', name: 'app_course_api_edit', methods: ['POST'])]
+    public function edit(
+        string $slug,
+        Request $request,
+        CourseUnitRepository $courseUnitRepository,
+        EntityManagerInterface $entityManager,
+        ValidatorInterface $validator,
+        RequestValidator $requestValidator
+    ): JsonResponse {
+        try {
+            // Validate request
+            $validation = $requestValidator->validateRequestDto(
+                $request,
+                CourseUnitRequest::class,
+                'course_edition'
+            );
+
+            if (!$validation['isValid']) {
+                return $this->createErrorResponse(
+                    'Validation failed',
+                    Response::HTTP_BAD_REQUEST,
+                    $validation['errors']
+                );
+            }
+
+            /** @var CourseUnitRequest $dto */
+            $dto = $validation['dto'];
+
+            // Find the course unit or throw an exception
+            $courseUnit = $courseUnitRepository->findBySlugOrFail($slug);
+
+            // Update course unit properties
+            if (isset($dto->name)) {
+                $courseUnit->setName($dto->name);
+            }
+
+            if (isset($dto->description)) {
+                $courseUnit->setDescription($dto->description);
+            }
+
+            if (isset($dto->image)) {
+                $courseUnit->setImage($dto->image);
+            }
+
+            if (isset($dto->slug)) {
+                $courseUnit->setSlug($dto->slug);
+            }
+
+            // Validate the entity
+            $violations = $validator->validate($courseUnit);
+            if (count($violations) > 0) {
+                return $this->createValidationErrorResponse($violations);
+            }
+
+            // Save changes
+            $entityManager->flush();
+
+            $courseDTO = $this->courseMapper->mapCourseUnitToDTO($courseUnit);
+
+            return $this->createSuccessResponse($courseDTO);
+        } catch (Exception $e) {
+            return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Delete a course unit
+     * Only accessible for administrators
+     *
+     * @param string $slug
+     * @param Request $request
+     * @param CourseUnitRepository $courseUnitRepository
+     * @param EntityManagerInterface $entityManager
+     * @return JsonResponse
+     */
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/{slug}/delete', name: 'app_course_api_delete', methods: ['POST'])]
+    public function delete(
+        string $slug,
+        Request $request,
+        CourseUnitRepository $courseUnitRepository,
+        EntityManagerInterface $entityManager
+    ): JsonResponse {
+        try {
+            // Decode JSON request
+            $data = json_decode($request->getContent(), true);
+            if (!$data) {
+                return $this->createErrorResponse('Invalid JSON request');
+            }
+
+            // Validate CSRF token
+            if (!isset($data['_token']) || !$this->csrfTokenManager->isTokenValid(
+                    new CsrfToken('course_deletion', $data['_token'])
+                )) {
+                return $this->createErrorResponse('Invalid CSRF token');
+            }
+
+            // Find the course unit or throw an exception
+            $courseUnit = $courseUnitRepository->findBySlugOrFail($slug);
+
+            // Check if there are any groups that should be deleted first
+            $groups = $courseUnit->getGroups();
+            if (!$groups->isEmpty()) {
+                // Remove all groups associated with this course unit
+                foreach ($groups as $group) {
+                    $courseUnit->removeGroup($group);
+                    $entityManager->remove($group);
+                }
+            }
+
+            // Remove any activities associated with this course unit
+            $activities = $courseUnit->getActivities();
+            if (!$activities->isEmpty()) {
+                foreach ($activities as $activity) {
+                    $courseUnit->removeActivity($activity);
+                    $entityManager->remove($activity);
+                }
+            }
+
+            // Remove the course unit
+            $entityManager->remove($courseUnit);
+            $entityManager->flush();
+
+            return $this->createSuccessResponse();
+        } catch (Exception $e) {
+            return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Get a specific course group
+     * Only accessible for administrators
+     *
+     * @param int $id - The course group ID
+     * @param CourseGroupRepository $courseGroupRepository
+     * @return JsonResponse
+     */
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/group/{id}', name: 'app_course_api_get_group', methods: ['GET'])]
+    public function getGroup(
+        int $id,
+        CourseGroupRepository $courseGroupRepository
+    ): JsonResponse {
+        try {
+            // Find course group
+            $courseGroup = $courseGroupRepository->find($id);
+            if (!$courseGroup) {
+                return $this->createErrorResponse("Course group with ID $id not found", Response::HTTP_NOT_FOUND);
+            }
+
+            $groupDTO = $this->courseMapper->mapCourseGroupToDTO($courseGroup);
+
+            return $this->createSuccessResponse();
+        } catch (Exception $e) {
+            return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Create a new course unit group
+     * Only accessible for administrators
+     *
+     * @param Request $request
+     * @param EntityManagerInterface $entityManager
+     * @param CourseUnitRepository $courseUnitRepository
+     * @param ValidatorInterface $validator
+     * @return JsonResponse
+     */
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/group/new', name: 'app_course_api_create_group', methods: ['POST'])]
+    public function createGroup(
+        Request $request,
+        EntityManagerInterface $entityManager,
+        CourseUnitRepository $courseUnitRepository,
+        ValidatorInterface $validator,
+        RequestValidator $requestValidator
+    ): JsonResponse {
+        try {
+            // Validate request using our service
+            $validation = $requestValidator->validateRequestDto(
+                $request,
+                CourseGroupRequest::class,
+                'course_group_create'
+            );
+
+            if (!$validation['isValid']) {
+                return $this->createErrorResponse(
+                    'Validation failed',
+                    Response::HTTP_BAD_REQUEST,
+                    $validation['errors']
+                );
+            }
+
+            /** @var CourseGroupRequest $dto */
+            $dto = $validation['dto'];
+
+            // Find course unit
+            $courseUnit = $courseUnitRepository->find($dto->courseUnitId);
+            if (!$courseUnit) {
+                return $this->createErrorResponse("Course unit with ID {$dto->courseUnitId} not found", Response::HTTP_NOT_FOUND);
+            }
+
+            try {
+                // Create schedule
+                $startTime = new DateTime($dto->startTime);
+                $endTime = new DateTime($dto->endTime);
+                $schedule = new CourseSchedule(
+                    $dto->dayOfWeek,
+                    $startTime,
+                    $endTime
+                );
+
+                // Create new course group
+                $courseGroup = new CourseGroup();
+                $courseGroup->setName($dto->name);
+                $courseGroup->setRoom($dto->room);
+                $courseGroup->setSchedule($schedule);
+                $courseGroup->setUnit($courseUnit);
+
+                // Validate entity
+                $errors = $validator->validate($courseGroup);
+                if (count($errors) > 0) {
+                    return $this->createValidationErrorResponse($errors);
+                }
+
+                // Save to database
+                $entityManager->persist($courseGroup);
+                $entityManager->flush();
+
+                $groupDTO = $this->courseMapper->mapCourseGroupToDTO($courseGroup);
+
+                // Return success response
+                return $this->createSuccessResponse($groupDTO);
+            } catch (InvalidArgumentException $e) {
+                return $this->createErrorResponse($e->getMessage());
+            }
+        } catch (Exception $e) {
+            return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Edit a course unit group
+     * Only accessible for administrators
+     *
+     * @param int $id - The course group ID
+     * @param Request $request
+     * @param CourseGroupRepository $courseGroupRepository
+     * @param EntityManagerInterface $entityManager
+     * @param ValidatorInterface $validator
+     * @return JsonResponse
+     */
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/group/{id}', name: 'app_course_api_edit_group', methods: ['POST'])]
+    public function editGroup(
+        int $id,
+        Request $request,
+        CourseGroupRepository $courseGroupRepository,
+        EntityManagerInterface $entityManager,
+        ValidatorInterface $validator,
+        RequestValidator $requestValidator
+    ): JsonResponse {
+        try {
+            // Validate request using our service
+            $validation = $requestValidator->validateRequestDto(
+                $request,
+                CourseGroupRequest::class,
+                'course_group_create'
+            );
+
+            if (!$validation['isValid']) {
+                return $this->createErrorResponse(
+                    'Validation failed',
+                    Response::HTTP_BAD_REQUEST,
+                    $validation['errors']
+                );
+            }
+
+            /** @var CourseGroupRequest $dto */
+            $dto = $validation['dto'];
+
+            // Find course group
+            $courseGroup = $courseGroupRepository->find($id);
+            if (!$courseGroup) {
+                return $this->createErrorResponse("Course group with ID {$id} not found", Response::HTTP_NOT_FOUND);
+            }
+
+            // Update fields if provided
+            if (isset($dto->name)) {
+                $courseGroup->setName($dto->name);
+            }
+
+            if (isset($dto->room)) {
+                $courseGroup->setRoom($dto->room);
+            }
+
+            // Update schedule if any schedule field is provided
+            $updateSchedule = isset($dto->dayOfWeek) || isset($dto->startTime) || isset($dto->endTime);
+            if ($updateSchedule) {
+                $currentSchedule = $courseGroup->getSchedule();
+
+                // Use existing or new values
+                $dayOfWeek = $dto->dayOfWeek ?? $currentSchedule->getDayOfWeek();
+                $startTime = isset($dto['startTime']) ? new DateTime($dto['startTime']) : $currentSchedule->getStartTime();
+                $endTime = isset($dto['endTime']) ? new DateTime($dto['endTime']) : $currentSchedule->getEndTime();
+
+                try {
+                    $newSchedule = new CourseSchedule($dayOfWeek, $startTime, $endTime);
+                    $courseGroup->setSchedule($newSchedule);
+                } catch (InvalidArgumentException $e) {
+                    return $this->createErrorResponse($e->getMessage());
+                }
+            }
+
+            // Validate entity
+            $errors = $validator->validate($courseGroup);
+            if (count($errors) > 0) {
+                return $this->createValidationErrorResponse($errors);
+            }
+
+            // Save changes
+            $entityManager->flush();
+
+            $groupDTO = $this->courseMapper->mapCourseGroupToDTO($courseGroup);
+
+            // Return success response
+            return $this->createSuccessResponse($groupDTO);
+        } catch (Exception $e) {
+            return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Delete a course unit group
+     * Only accessible for administrators
+     *
+     * @param int $id - The course group ID
+     * @param Request $request
+     * @param CourseGroupRepository $courseGroupRepository
+     * @param EntityManagerInterface $entityManager
+     * @return JsonResponse
+     */
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/group/{id}/delete', name: 'app_course_api_delete_group', methods: ['POST'])]
+    public function deleteGroup(
+        int $id,
+        Request $request,
+        CourseGroupRepository $courseGroupRepository,
+        EntityManagerInterface $entityManager
+    ): JsonResponse {
+        try {
+            // Decode JSON request
+            $data = json_decode($request->getContent(), true);
+            if (!$data) {
+                return $this->createErrorResponse('Invalid JSON request');
+            }
+
+            // Validate CSRF token
+            if (!isset($data['_token']) || !$this->csrfTokenManager->isTokenValid(
+                    new CsrfToken('course_group_delete', $data['_token'])
+                )) {
+                return $this->createErrorResponse('Invalid CSRF token');
+            }
+
+            // Find course group
+            $courseGroup = $courseGroupRepository->find($id);
+            if (!$courseGroup) {
+                return $this->createErrorResponse("Course group with ID {$id} not found", Response::HTTP_NOT_FOUND);
+            }
+
+            // Remove all members relationship first
+            foreach ($courseGroup->getMembers() as $member) {
+                $courseGroup->removeMember($member);
+            }
+
+            // Delete the group
+            $entityManager->remove($courseGroup);
+            $entityManager->flush();
+
+            // Return success response
+            return $this->createSuccessResponse();
+        } catch (Exception $e) {
+            return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Get users eligible to be added to a course group (not already members)
+     * Only accessible for administrators
+     *
+     * @param int $id - The course group ID
+     * @param CourseGroupRepository $courseGroupRepository
+     * @param UserRepository $userRepository
+     * @return JsonResponse
+     */
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/group/{id}/eligible-users', name: 'app_course_api_eligible_users', methods: ['GET'])]
+    public function getEligibleUsersForGroup(
+        int $id,
+        CourseGroupRepository $courseGroupRepository,
+        UserRepository $userRepository
+    ): JsonResponse {
+        try {
+            // Find course group
+            $courseGroup = $courseGroupRepository->find($id);
+            if (!$courseGroup) {
+                return $this->createErrorResponse("Course group with ID {$id} not found", Response::HTTP_NOT_FOUND);
+            }
+
+            // Get users who are not already in the group
+            $eligibleUsers = $userRepository->findUsersNotInGroup($courseGroup);
+
+            // Format response data
+            $formattedUsers = [];
+            foreach ($eligibleUsers as $user) {
+                $formattedUsers[] = [
+                    'id' => $user->getId(),
+                    'email' => $user->getEmail(),
+                    'firstname' => $user->getFirstname(),
+                    'lastname' => $user->getLastname(),
+                    'roles' => $user->getRoles(),
+                ];
+            }
+
+            // Return users
+            return $this->createSuccessResponse($formattedUsers);
+        } catch (Exception $e) {
+            return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Add a user to a course unit group
+     * Only accessible for administrators
+     *
+     * @param int $id - The course group ID
+     * @param Request $request
+     * @param CourseGroupRepository $courseGroupRepository
+     * @param UserRepository $userRepository
+     * @param EntityManagerInterface $entityManager
+     * @return JsonResponse
+     */
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/group/{id}/add', name: 'app_course_api_add_user', methods: ['POST'])]
+    public function addUserToGroup(
+        int $id,
+        Request $request,
+        CourseGroupRepository $courseGroupRepository,
+        UserRepository $userRepository,
+        EntityManagerInterface $entityManager,
+        RequestValidator $requestValidator
+    ): JsonResponse {
+        try {
+            // Validate request
+            $validation = $requestValidator->validateRequestDto(
+                $request,
+                GroupMembershipRequest::class,
+                'course_group_add_user'
+            );
+
+            if (!$validation['isValid']) {
+                return $this->createErrorResponse(
+                    'Validation failed',
+                    Response::HTTP_BAD_REQUEST,
+                    $validation['errors']
+                );
+            }
+
+            /** @var GroupMembershipRequest $dto */
+            $dto = $validation['dto'];
+
+            // Find course group
+            $courseGroup = $courseGroupRepository->find($id);
+            if (!$courseGroup) {
+                return $this->createErrorResponse("Course group with ID {$id} not found", Response::HTTP_NOT_FOUND);
+            }
+
+            // Find user to add
+            $user = $userRepository->find($dto['userId']);
+            if (!$user) {
+                return $this->createErrorResponse("User with ID {$dto['userId']} not found", Response::HTTP_NOT_FOUND);
+            }
+
+            // Check if user is already in the group
+            if ($courseGroup->getMembers()->contains($user)) {
+                return $this->createErrorResponse("User with ID {$dto['userId']} is already in the group", Response::HTTP_CONFLICT);
+            }
+
+            // Add user to group
+            $courseGroup->addMember($user);
+            $entityManager->flush();
+
+            // Return success response with formatted data to avoid circular references
+            return $this->createSuccessResponse([
+                'user' => [
+                    'id' => $user->getId(),
+                    'email' => $user->getEmail(),
+                    'fullName' => $user->getFullName(),
+                ],
+                'group' => [
+                    'id' => $courseGroup->getId(),
+                    'name' => $courseGroup->getName(),
+                ]
+            ]);
+        } catch (Exception $e) {
+            return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Remove a user from a course unit group
+     * Only accessible for administrators
+     *
+     * @param int $id - The course group ID
+     * @param Request $request
+     * @param CourseGroupRepository $courseGroupRepository
+     * @param UserRepository $userRepository
+     * @param EntityManagerInterface $entityManager
+     * @return JsonResponse
+     */
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/group/{id}/remove', name: 'app_course_api_remove_user', methods: ['POST'])]
+    public function removeUserFromGroup(
+        int $id,
+        Request $request,
+        CourseGroupRepository $courseGroupRepository,
+        UserRepository $userRepository,
+        EntityManagerInterface $entityManager
+    ): JsonResponse {
+        try {
+            // Decode JSON request
+            $data = json_decode($request->getContent(), true);
+            if (!$data) {
+                return $this->createErrorResponse('Invalid JSON request');
+            }
+
+            // Validate CSRF token
+            if (!isset($data['_token']) || !$this->csrfTokenManager->isTokenValid(
+                    new CsrfToken('course_group_remove_user', $data['_token'])
+                )) {
+                return $this->createErrorResponse('Invalid CSRF token');
+            }
+
+            // Find course group
+            $courseGroup = $courseGroupRepository->find($id);
+            if (!$courseGroup) {
+                return $this->createErrorResponse("Course group with ID {$id} not found", Response::HTTP_NOT_FOUND);
+            }
+
+            // Decode JSON request
+            if (!isset($data['userId'])) {
+                return $this->createErrorResponse('Invalid JSON request, missing userId');
+            }
+
+            // Find user to remove
+            $user = $userRepository->find($data['userId']);
+            if (!$user) {
+                return $this->createErrorResponse("User with ID {$data['userId']} not found", Response::HTTP_NOT_FOUND);
+            }
+
+            // Check if user is in the group
+            if (!$courseGroup->getMembers()->contains($user)) {
+                return $this->createErrorResponse("User with ID {$data['userId']} is not in the group", Response::HTTP_CONFLICT);
+            }
+
+            // Remove user from group
+            $courseGroup->removeMember($user);
+            $entityManager->flush();
+
+            // Return success response with formatted data to avoid circular references
+            return $this->createSuccessResponse([
+                'user' => [
+                    'id' => $user->getId(),
+                    'email' => $user->getEmail(),
+                    'fullName' => $user->getFullName(),
+                ],
+                'group' => [
+                    'id' => $courseGroup->getId(),
+                    'name' => $courseGroup->getName(),
+                ]
+            ]);
+        } catch (Exception $e) {
+            return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Get users of a specific role in a course group with pagination
+     * Only accessible for administrators
+     *
+     * @param int $id - The course group ID
+     * @param string $role - The role to filter by (teacher or student)
+     * @param Request $request
+     * @param CourseGroupRepository $courseGroupRepository
+     * @param UserRepository $userRepository
+     * @return JsonResponse
+     */
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/group/{id}/members/{role}', name: 'app_course_api_group_members', methods: ['GET'])]
+    public function getGroupMembersByRole(
+        int $id,
+        string $role,
+        Request $request,
+        CourseGroupRepository $courseGroupRepository,
+        UserRepository $userRepository
+    ): JsonResponse {
+        try {
+            // Find course group
+            $courseGroup = $courseGroupRepository->find($id);
+            if (!$courseGroup) {
+                return $this->createErrorResponse("Course group with ID {$id} not found", Response::HTTP_NOT_FOUND);
+            }
+
+            // Validate role parameter
+            if (!in_array($role, ['teacher', 'student'])) {
+                return $this->createErrorResponse('Invalid role parameter', Response::HTTP_BAD_REQUEST);
+            }
+
+            // Map role parameter to Role enum
+            $roleEnum = $role === 'teacher' ? Role::ROLE_TEACHER : Role::ROLE_STUDENT;
+
+            // Get pagination parameters
+            $limit = $request->query->getInt('limit', 20);
+            $offset = $request->query->getInt('offset', 0);
+            $searchTerm = $request->query->get('search', '');
+
+            // Limit the number of results per page
+            $limit = min($limit, 100);
+
+            // Get group members by role
+            $members = $userRepository->findGroupMembersByRole($courseGroup, $roleEnum, $limit, $offset, $searchTerm);
+            $total = $userRepository->countGroupMembersByRole($courseGroup, $roleEnum, $searchTerm);
+
+            // Format members for response
+            $formattedMembers = [];
+            foreach ($members as $member) {
+                $formattedMembers[] = [
+                    'id' => $member->getId(),
+                    'email' => $member->getEmail(),
+                    'firstname' => $member->getFirstname(),
+                    'lastname' => $member->getLastname(),
+                    'fullName' => $member->getFullName(),
+                    'roles' => $member->getRoles()
+                ];
+            }
+
+            // Return group members
+            return $this->createPaginatedSuccessResponse(
+                $formattedMembers,
+                $total,
+                ($offset + count($formattedMembers) < $total)
+            );
+        } catch (Exception $e) {
+            return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Get users eligible to be added to a course group filtered by role
+     * Only accessible for administrators
+     *
+     * @param int $id - The course group ID
+     * @param string $role - The role to filter by (teacher or student)
+     * @param CourseGroupRepository $courseGroupRepository
+     * @param UserRepository $userRepository
+     * @return JsonResponse
+     */
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/group/{id}/eligible-users/{role}', name: 'app_course_api_eligible_users_by_role', methods: ['GET'])]
+    public function getEligibleUsersForGroupByRole(
+        int $id,
+        string $role,
+        Request $request,
+        CourseGroupRepository $courseGroupRepository,
+        UserRepository $userRepository
+    ): JsonResponse {
+        try {
+            // Find course group
+            $courseGroup = $courseGroupRepository->find($id);
+            if (!$courseGroup) {
+                return $this->createErrorResponse("Course group with ID {$id} not found", Response::HTTP_NOT_FOUND);
+            }
+
+            // Validate role parameter
+            if (!in_array($role, ['teacher', 'student'])) {
+                return $this->createErrorResponse('Invalid role parameter', Response::HTTP_BAD_REQUEST);
+            }
+
+            // Map role parameter to Role enum
+            $roleValue = $role === 'teacher' ? Role::ROLE_TEACHER : Role::ROLE_STUDENT;
+
+            // Get pagination parameters
+            $limit = $request->query->getInt('limit', 20);
+            $offset = $request->query->getInt('offset', 0);
+            $searchTerm = $request->query->get('search', '');
+
+            // Limit the number of results per page
+            $limit = min($limit, 100);
+
+            // Get eligible users by role - FIXED: Using the correct method name
+            $eligibleUsers = $userRepository->findUsersNotInGroupByRole($courseGroup, $roleValue, $limit, $offset, $searchTerm);
+            $total = $userRepository->countUsersNotInGroupByRole($courseGroup, $roleValue, $searchTerm);
+
+            // Format users for response directly to avoid circular reference
+            $formattedUsers = [];
+            foreach ($eligibleUsers as $user) {
+                $formattedUsers[] = [
+                    'id' => $user->getId(),
+                    'email' => $user->getEmail(),
+                    'firstname' => $user->getFirstname(),
+                    'lastname' => $user->getLastname(),
+                    'fullName' => $user->getFullName(),
+                    'roles' => $user->getRoles()
+                ];
+            }
+
+            // Return eligible users
+            return $this->createPaginatedSuccessResponse(
+                $formattedUsers,
+                $total,
+                ($offset + count($eligibleUsers) < $total)
+            );
+        } catch (Exception $e) {
+            return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Get all members of a course group with teachers first, then students
+     * Only accessible for administrators
+     *
+     * @param int $id - The course group ID
+     * @param Request $request
+     * @param CourseGroupRepository $courseGroupRepository
+     * @return JsonResponse
+     */
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/group/{id}/members', name: 'app_course_api_all_group_members', methods: ['GET'])]
+    public function getAllGroupMembers(
+        int $id,
+        Request $request,
+        CourseGroupRepository $courseGroupRepository
+    ): JsonResponse {
+        try {
+            // Find course group
+            $courseGroup = $courseGroupRepository->find($id);
+            if (!$courseGroup) {
+                return $this->createErrorResponse("Course group with ID {$id} not found", Response::HTTP_NOT_FOUND);
+            }
+
+            // Get pagination parameters
+            $limit = $request->query->getInt('limit', 20);
+            $offset = $request->query->getInt('offset', 0);
+
+            // Limit the number of results per page
+            $limit = min($limit, 100);
+
+            // Get all members as array to prevent circular reference issues
+            $allMembers = [];
+            foreach ($courseGroup->getMembers() as $member) {
+                $allMembers[] = [
+                    'id' => $member->getId(),
+                    'email' => $member->getEmail(),
+                    'firstname' => $member->getFirstname(),
+                    'lastname' => $member->getLastname(),
+                    'fullName' => $member->getFullName(),
+                    'roles' => $member->getRoles()
+                ];
+            }
+
+            // Sort members: teachers first, then students, alphabetically within each group
+            usort($allMembers, function($a, $b) {
+                $aIsTeacher = in_array('ROLE_TEACHER', $a['roles']);
+                $bIsTeacher = in_array('ROLE_TEACHER', $b['roles']);
+
+                // If one is a teacher and the other is not, teacher comes first
+                if ($aIsTeacher && !$bIsTeacher) return -1;
+                if (!$aIsTeacher && $bIsTeacher) return 1;
+
+                // If both are teachers or both are students, sort alphabetically by last name, then first name
+                $lastNameComparison = strcmp($a['lastname'], $b['lastname']);
+                if ($lastNameComparison !== 0) return $lastNameComparison;
+
+                return strcmp($a['firstname'], $b['firstname']);
+            });
+
+            // Apply pagination
+            $totalMembers = count($allMembers);
+            $members = array_slice($allMembers, $offset, $limit);
+
+            // Return all members
+            return $this->createPaginatedSuccessResponse(
+                $members,
+                $totalMembers,
+                ($offset + count($members) < $totalMembers)
+            );
+        } catch (Exception $e) {
+            return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+}

@@ -24,7 +24,8 @@ class CourseGroup
     private ?int $id = null;
 
     #[ORM\Column(length: 50)]
-    #[Assert\NotBlank(message: "Le nom du groupe ne peut pas être vide")]
+    #[Assert\NotBlank(message: 'Group name cannot be blank')]
+    #[Assert\Length(max: 50, maxMessage: 'Group name cannot be longer than {{ limit }} characters')]
     private ?string $name = null;
 
     #[ORM\ManyToOne(inversedBy: 'groups')]
@@ -34,13 +35,20 @@ class CourseGroup
     /**
      * @var Collection<int, User>
      */
-    #[ORM\ManyToMany(targetEntity: User::class, inversedBy: 'memberInGroups', orphanRemoval: true)]
+    #[ORM\ManyToMany(
+        targetEntity: User::class,
+        inversedBy: 'memberInGroups'
+    )]
     private Collection $members;
 
     #[ORM\Embedded(class: CourseSchedule::class)]
+    #[Assert\NotNull(message: 'Schedule cannot be null')]
+    #[Assert\Valid]
     private ?CourseSchedule $schedule = null;
 
     #[ORM\Column(length: 50)]
+    #[Assert\NotBlank(message: 'Room cannot be blank')]
+    #[Assert\Length(max: 50, maxMessage: 'Room cannot be longer than {{ limit }} characters')]
     private ?string $room = null;
 
     public function __construct()
@@ -58,7 +66,7 @@ class CourseGroup
         return $this->name;
     }
 
-    public function setName(string $name): static
+    public function setName(string $name): self
     {
         $this->name = $name;
 
@@ -70,7 +78,7 @@ class CourseGroup
         return $this->unit;
     }
 
-    public function setUnit(?CourseUnit $unit): static
+    public function setUnit(?CourseUnit $unit): self
     {
         $this->unit = $unit;
 
@@ -85,7 +93,7 @@ class CourseGroup
         return $this->members;
     }
 
-    public function addMember(User $member): static
+    public function addMember(User $member): self
     {
         if (!$this->members->contains($member)) {
             $this->members->add($member);
@@ -94,7 +102,7 @@ class CourseGroup
         return $this;
     }
 
-    public function removeMember(User $member): static
+    public function removeMember(User $member): self
     {
         $this->members->removeElement($member);
 
@@ -106,7 +114,7 @@ class CourseGroup
         return $this->schedule;
     }
 
-    public function setSchedule(?CourseSchedule $schedule): static
+    public function setSchedule(?CourseSchedule $schedule): self
     {
         $this->schedule = $schedule;
 
@@ -142,7 +150,7 @@ class CourseGroup
         return $this->room;
     }
 
-    public function setRoom(string $room): static
+    public function setRoom(string $room): self
     {
         $this->room = $room;
 

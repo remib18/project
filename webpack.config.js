@@ -24,6 +24,7 @@ Encore
     .addEntry('course-manager', './assets/js/course-manager.js')
     .addEntry('tab-manager', './assets/js/tab-manager.js')
     .addEntry('user-manager', './assets/js/user-manager.js')
+    .addEntry('group-members-manager', './assets/js/group-members-manager.js')
     .addEntry('utils', './assets/js/utils.js')
 
     // When enabled, Webpack "splits" your files into smaller pieces for greater optimization.

@@ -19,7 +19,26 @@ class CourseGroupRepository extends ServiceEntityRepository
     }
 
     /**
-     * Find current ongoing course groups for a user
+     * Find course group by ID with eager loading of related entities
+     *
+     * @param int $id The course group ID
+     * @return CourseGroup|null
+     */
+    public function findWithRelations(int $id): ?CourseGroup
+    {
+        return $this->createQueryBuilder('g')
+            ->select('g, u, s, m')
+            ->leftJoin('g.unit', 'u')
+            ->leftJoin('g.schedule', 's')
+            ->leftJoin('g.members', 'm')
+            ->where('g.id = :id')
+            ->setParameter('id', $id)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * Find current ongoing course groups for a user with eager loading
      *
      * @param User $user
      * @param \DateTimeInterface|null $dateTime
@@ -28,10 +47,11 @@ class CourseGroupRepository extends ServiceEntityRepository
     public function findCurrentGroupsForUser(User $user, \DateTimeInterface $dateTime = null): array
     {
         $dateTime = $dateTime ?? new \DateTime();
-        $dayOfWeek = (int)$dateTime->format('N'); // 1 (Monday) to 7 (Sunday)
+        $dayOfWeek = (int)$dateTime->format('N') - 1; // 0 (Monday) to 6 (Sunday)
         $currentTime = $dateTime->format('H:i:s');
 
         return $this->createQueryBuilder('g')
+            ->select('g, u, s')
             ->innerJoin('g.members', 'm', Join::WITH, 'm = :user')
             ->innerJoin('g.unit', 'u')
             ->where('g.schedule.dayOfWeek = :dayOfWeek')
@@ -45,7 +65,7 @@ class CourseGroupRepository extends ServiceEntityRepository
     }
 
     /**
-     * Find upcoming course groups for a user
+     * Find upcoming course groups for a user with eager loading
      *
      * @param User $user
      * @param \DateTimeInterface|null $dateTime
@@ -55,12 +75,14 @@ class CourseGroupRepository extends ServiceEntityRepository
     public function findUpcomingGroupsForUser(User $user, \DateTimeInterface $dateTime = null, int $limit = 3): array
     {
         $dateTime = $dateTime ?? new \DateTime();
-        $dayOfWeek = (int)$dateTime->format('N'); // 1 (Monday) to 7 (Sunday)
+        $dayOfWeek = (int)$dateTime->format('N') - 1; // 0 (Monday) to 6 (Sunday)
         $currentTime = $dateTime->format('H:i:s');
 
         $qb = $this->createQueryBuilder('g')
+            ->select('g, u, s')
             ->innerJoin('g.members', 'm', Join::WITH, 'm = :user')
             ->innerJoin('g.unit', 'u')
+            ->leftJoin('g.schedule', 's')
             ->setParameter('user', $user)
             ->setMaxResults($limit);
 
@@ -81,13 +103,14 @@ class CourseGroupRepository extends ServiceEntityRepository
             $futureDays = [];
             for ($i = 1; $i <= 7; $i++) {
                 $futureDay = ($dayOfWeek + $i) % 7;
-                if ($futureDay === 0) $futureDay = 7; // Sunday is 7, not 0
                 $futureDays[] = $futureDay;
             }
 
             $futureGroups = $this->createQueryBuilder('g')
+                ->select('g, u, s')
                 ->innerJoin('g.members', 'm', Join::WITH, 'm = :user')
                 ->innerJoin('g.unit', 'u')
+                ->leftJoin('g.schedule', 's')
                 ->where('g.schedule.dayOfWeek IN (:futureDays)')
                 ->setParameter('user', $user)
                 ->setParameter('futureDays', $futureDays)
@@ -104,7 +127,7 @@ class CourseGroupRepository extends ServiceEntityRepository
     }
 
     /**
-     * Find course groups by room
+     * Find course groups by room with eager loading
      *
      * @param string $room
      * @return array<CourseGroup>
@@ -112,6 +135,9 @@ class CourseGroupRepository extends ServiceEntityRepository
     public function findByRoom(string $room): array
     {
         return $this->createQueryBuilder('g')
+            ->select('g, u, s')
+            ->leftJoin('g.unit', 'u')
+            ->leftJoin('g.schedule', 's')
             ->where('g.room = :room')
             ->setParameter('room', $room)
             ->getQuery()

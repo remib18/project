@@ -1,4 +1,5 @@
 import {escapeHtml, InfiniteScrollManager, notify, confirm} from './utils.js';
+import {apiService} from './api-service.js';
 
 // Define available roles
 const AVAILABLE_ROLES = [
@@ -160,12 +161,7 @@ function getSelectedRoles() {
 
 async function fetchUserById(userId) {
     try {
-        const response = await fetch(`/api/user/${userId}`);
-        if (!response.ok) {
-            throw new Error('Failed to fetch user data');
-        }
-        const data = await response.json();
-        return data.user;
+        return await apiService.getUser(userId);
     } catch (error) {
         console.error('Error fetching user:', error);
         handleUserError('Impossible de récupérer les données de l\'utilisateur.');
@@ -198,38 +194,31 @@ async function saveUser() {
 
     const userId = document.getElementById('user-id').value;
     const isNewUser = !userId;
-    const endpoint = isNewUser ? '/api/user/new' : `/api/user/${userId}/edit`;
-    const method = 'POST';
 
-    // Include CSRF token in the form data
-    const csrfToken = document.getElementById('user-csrf-token').value;
-
-    const formData = {
+    // Get form data
+    const userData = {
         email: document.getElementById('user-email').value,
         firstname: document.getElementById('user-firstname').value,
         lastname: document.getElementById('user-lastname').value,
         roles: getSelectedRoles(),
-        _token: csrfToken
+        _token: document.getElementById('user-csrf-token').value
     };
 
     // Add password only if provided (required for new users, optional for updates)
     const password = document.getElementById('user-password').value;
     if (password) {
-        formData.password = password;
+        userData.password = password;
     }
 
     try {
-        const response = await fetch(endpoint, {
-            method,
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(formData)
-        });
+        let result;
+        if (isNewUser) {
+            result = await apiService.createUser(userData);
+        } else {
+            result = await apiService.updateUser(userId, userData);
+        }
 
-        const result = await response.json();
-
-        if (!response.ok) {
+        if (result.status === 'error') {
             if (result.form && result.form.errors) {
                 displayValidationErrors(result.form.errors);
             } else {
@@ -264,22 +253,10 @@ async function showDeleteConfirmation(userId) {
 
 async function deleteUser(userId) {
     try {
-        const csrfToken = document.querySelector('meta[name="csrf-token-user_deletion"]').content;
+        const success = await apiService.deleteUser(userId);
 
-        const response = await fetch(`/api/user/${userId}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                _token: csrfToken
-            })
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            notify(result.message || 'Erreur lors de la suppression de l\'utilisateur.', 'error');
+        if (!success) {
+            notify('Erreur lors de la suppression de l\'utilisateur.', 'error');
             return;
         }
 
