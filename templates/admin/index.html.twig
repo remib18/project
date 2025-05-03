@@ -3,6 +3,32 @@
 
 {% block title %}Administration{% endblock %}
 
+{% block javascripts %}
+    {# CSRF Tokens metadata to be accessed in javascript #}
+    <meta name="csrf-token-course_creation" content="{{ csrf_token('course_creation') }}">
+    <meta name="csrf-token-course_edition" content="{{ csrf_token('course_edition') }}">
+    <meta name="csrf-token-course_deletion" content="{{ csrf_token('course_deletion') }}">
+    <meta name="csrf-token-course_group_create" content="{{ csrf_token('course_group_create') }}">
+    <meta name="csrf-token-course_group_delete" content="{{ csrf_token('course_group_delete') }}">
+    <meta name="csrf-token-group-members" content="{{ csrf_token('group_members') }}">
+    <meta name="csrf-token-user_deletion" content="{{ csrf_token('delete_user') }}">
+
+    {{ encore_entry_script_tags('tab-manager') }}
+    {{ encore_entry_script_tags('course-manager') }}
+    {{ encore_entry_script_tags('user-manager') }}
+    {{ encore_entry_script_tags('group-members-manager') }}
+
+    {# Loading components #}
+    <script defer>
+        document.addEventListener('DOMContentLoaded', () => {
+            initTabs();
+            initCourses();
+            initUsers();
+            initGroupMembersManager();
+        });
+    </script>
+{% endblock %}
+
 {% block content %}
 
     <h1 class="text-2xl font-bold mb-6">Administration</h1>
@@ -55,7 +81,15 @@
                                 aria-label="Ajouter un cours"
                         >
                             {{ comp.actionIcon('add-folder') }}
-                            Ajouter
+                            Ajouter une UE
+                        </button>
+                        <button
+                                id="add-course-group-btn"
+                                class="bg-[#37A0C9] text-white px-3 py-2 rounded-md flex items-center hover:bg-[#2c8aa8] focus:outline-none focus:ring-2 focus:ring-[#37A0C9] focus:ring-offset-2 flex gap-2 items-center"
+                                aria-label="Ajouter un groupe"
+                        >
+                            {{ comp.actionIcon('add-folder') }}
+                            Ajouter un groupe
                         </button>
                     </div>
                 </div>
@@ -73,11 +107,11 @@
                         </thead>
                         <tbody id="course-table-body">
                         <!-- Les cours seront chargés ici par JavaScript -->
-                        <tr>
+                        <tr id="initial-course-loader">
                             <td colspan="6" class="px-6 py-4 text-center text-gray-500">
                                 <div class="flex justify-center items-center gap-2">
                                     {{ comp.actionIcon('loader') }}
-                                    Chargement des cours... (pas encore implémenté)
+                                    Chargement des cours...
                                 </div>
                             </td>
                         </tr>
@@ -97,6 +131,7 @@
                 <div id="end-of-course" class="hidden py-4 text-center text-gray-500">
                     Tous les cours ont été chargés
                 </div>
+                <div id="course-scroll-sentinel" class="h-1 w-full"></div>
             </div>
         </div>
         <div id="panel-2" role="tabpanel" aria-labelledby="tab-2" tabindex="0" class="hidden focus:outline-none">
@@ -134,7 +169,7 @@
                         </thead>
                         <tbody id="users-table-body">
                         <!-- Les utilisateurs seront chargés ici par JavaScript -->
-                        <tr>
+                        <tr id="initial-user-loader">
                             <td colspan="6" class="px-6 py-4 text-center text-gray-500">
                                 <div class="flex justify-center items-center gap-2">
                                     {{ comp.actionIcon('loader') }}
@@ -147,7 +182,7 @@
                 </div>
 
                 <!-- Loader pour la pagination -->
-                <div id="pagination-loader" class="hidden py-4 text-center">
+                <div id="users-pagination-loader" class="hidden py-4 text-center">
                     <div class="flex justify-center items-center gap-2">
                         {{ comp.actionIcon('loader') }}
                         Chargement des utilisateurs supplémentaires...
@@ -158,6 +193,7 @@
                 <div id="end-of-users" class="hidden py-4 text-center text-gray-500">
                     Tous les utilisateurs ont été chargés
                 </div>
+                <div id="user-scroll-sentinel" class="h-1 w-full"></div>
             </div>
         </div>
     </div>
@@ -179,10 +215,10 @@
             <div class="px-6 py-4">
                 <form id="user-form">
                     <input type="hidden" id="user-id" name="id" value="">
-                    <input type="hidden" id="csrf-token" name="_token" value="">
+                    <input type="hidden" id="user-csrf-token" name="_token" value="{{ csrf_token('user') }}">
 
                     <!-- Message d'erreur -->
-                    <div id="form-error" class="mb-4 text-red-500 hidden"></div>
+                    <div id="user-form-error" class="mb-4 text-red-500 hidden"></div>
 
                     <!-- Champ email -->
                     <div class="mb-4">
@@ -211,7 +247,7 @@
                     <!-- Champ mot de passe (visible uniquement lors de la création) -->
                     <div class="mb-4" id="password-field">
                         <label for="user-password" class="block text-sm font-medium text-gray-700 mb-1">Mot de passe <span class="text-red-500">*</span></label>
-                        <input type="password" id="user-password" name="password" required
+                        <input type="password" id="user-password" name="password" required autocomplete="none"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <div class="text-red-500 text-sm mt-1 hidden" id="password-error"></div>
                     </div>
@@ -239,641 +275,182 @@
         </div>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-
-            // Configuration pour la pagination
-            const userState = {
-                users: [],
-                page: 1,
-                limit: 20,
-                loading: false,
-                hasMore: true,
-                searchTerm: '',
-                selectedTab: 'tab-1'
-            };
-
-            // Sélection des éléments
-            const tabs = document.querySelectorAll('[role="tab"]');
-            const panels = document.querySelectorAll('[role="tabpanel"]');
-            const usersTableBody = document.getElementById('users-table-body');
-            const paginationLoader = document.getElementById('pagination-loader');
-            const endOfUsersMessage = document.getElementById('end-of-users');
-            const userSearchInput = document.getElementById('user-search');
-
-            // Définir les rôles disponibles
-            const availableRoles = [
-                { value: 'ROLE_USER', label: 'Utilisateur', default: true, hidden: true },
-                { value: 'ROLE_STUDENT', label: 'Étudiant', default: false, hidden: false },
-                { value: 'ROLE_TEACHER', label: 'Enseignant', default: false, hidden: false },
-                { value: 'ROLE_ADMIN', label: 'Administrateur', default: false, hidden: false }
-            ];
-
-            // Ajout des événements pour chaque onglet
-            tabs.forEach(tab => {
-                // Événement au clic
-                tab.addEventListener('click', changeTabs);
-
-                // Événement au clavier
-                tab.addEventListener('keydown', handleKeyNavigation);
-            });
-
-            // Récupération de l'onglet sélectionné depuis l'URL s'il existe
-            const params = new URLSearchParams(window.location.search);
-            let selectedTab = params.get('t');
-            const tabElement = document.getElementById(selectedTab);
-            if (selectedTab && tabElement) {
-                const event = new Event('click');
-                tabElement.dispatchEvent(event);
-            }
-
-            // Fonction de changement d'onglet
-            function changeTabs(e) {
-                const targetTab = e.currentTarget;
-                const targetPanelId = targetTab.getAttribute('aria-controls');
-                const targetPanel = document.getElementById(targetPanelId);
-
-                // Vérification que le panneau cible existe
-                if (!targetPanel) {
-                    console.error(`Le panneau avec l'ID ${targetPanelId} n'a pas été trouvé`);
-                    return;
-                }
-
-                // Mise à jour de l'état des onglets
-                tabs.forEach(tab => {
-                    const selected = tab === targetTab;
-                    const tabSelector = tab.getAttribute('id');
-                    tab.setAttribute('aria-selected', selected);
-                    tab.setAttribute('tabindex', selected ? '0' : '-1');
-
-                    // Mise à jour des styles et mise à jour de l'URL
-                    if (selected) {
-                        history.pushState(null, '', `?t=${tabSelector}`);
-                        tab.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
-                        tab.classList.add('border-[#37A0C9]', 'text-[#37A0C9]');
-                    } else {
-                        tab.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
-                        tab.classList.remove('border-[#37A0C9]', 'text-[#37A0C9]');
-                    }
-                });
-
-                // Mise à jour de l'affichage des panneaux
-                panels.forEach(panel => {
-                    panel.classList.toggle('hidden', panel.id !== targetPanelId);
-                });
-
-                // Si l'onglet des utilisateurs est sélectionné et que les utilisateurs n'ont pas encore été chargés
-                if (targetTab.id === 'tab-2' && userState.users.length === 0) {
-                    fetchUsers();
-                }
-            }
-
-            // Gestion de la navigation au clavier
-            function handleKeyNavigation(e) {
-                const currentIndex = Array.from(tabs).indexOf(e.currentTarget);
-
-                switch (e.key) {
-                    case 'ArrowRight':
-                        // Passer à l'onglet suivant (ou revenir au premier)
-                        const nextIndex = (currentIndex + 1) % tabs.length;
-                        tabs[nextIndex].focus();
-                        tabs[nextIndex].click();
-                        break;
-                    case 'ArrowLeft':
-                        // Passer à l'onglet précédent (ou aller au dernier)
-                        const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-                        tabs[prevIndex].focus();
-                        tabs[prevIndex].click();
-                        break;
-                    case 'Home':
-                        // Aller au premier onglet
-                        tabs[0].focus();
-                        tabs[0].click();
-                        break;
-                    case 'End':
-                        // Aller au dernier onglet
-                        tabs[tabs.length - 1].focus();
-                        tabs[tabs.length - 1].click();
-                        break;
-                }
-            }
-
-            // Fonction pour récupérer les utilisateurs depuis l'API
-            async function fetchUsers() {
-                if (userState.loading || !userState.hasMore) return;
-
-                try {
-                    userState.loading = true;
-
-                    // Afficher le loader approprié
-                    if (userState.page === 1) {
-                        // Premier chargement, le loader est déjà dans le tableau
-                    } else {
-                        paginationLoader.classList.remove('hidden');
-                    }
-
-                    // Construction de l'URL avec les paramètres de pagination
-                    const offset = (userState.page - 1) * userState.limit;
-                    const url = `/api/user?limit=${userState.limit}&offset=${offset}&search=${encodeURIComponent(userState.searchTerm)}`;
-
-                    const response = await fetch(url);
-
-                    if (!response.ok) {
-                        throw new Error(`Erreur HTTP: ${response.status}`);
-                    }
-
-                    const data = await response.json();
-
-                    // Mise à jour de l'état
-                    if (userState.page === 1) {
-                        userState.users = data;
-                    } else {
-                        userState.users = [...userState.users, ...data];
-                    }
-
-                    userState.hasMore = data.length === userState.limit;
-                    userState.page++;
-
-                    // Mise à jour de l'interface
-                    renderUsers();
-
-                } catch (error) {
-                    console.error('Erreur lors de la récupération des utilisateurs:', error);
-                    displayError('Une erreur est survenue lors du chargement des utilisateurs');
-                } finally {
-                    userState.loading = false;
-                    paginationLoader.classList.add('hidden');
-
-                    // Afficher le message de fin si il n'y a plus d'utilisateurs à charger
-                    if (!userState.hasMore && userState.users.length > 0) {
-                        endOfUsersMessage.classList.remove('hidden');
-                    }
-                }
-            }
-
-            // Fonction pour afficher les utilisateurs dans le tableau
-            function renderUsers() {
-                if (userState.users.length === 0) {
-                    usersTableBody.innerHTML = `
-                        <tr>
-                            <td colspan="6" class="px-6 py-4 text-center text-gray-500">
-                                Aucun utilisateur trouvé
-                            </td>
-                        </tr>
-                    `;
-                    return;
-                }
-
-                usersTableBody.innerHTML = userState.users.map((user, index) => `
-                    <tr class="${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}" id="user-row-${user.id}">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${user.id}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(user.fullName || 'N/A')}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(user.email)}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            ${formatRoles(user.roles)}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div class="flex space-x-2">
-                                <button
-                                    aria-label="Modifier l'utilisateur ${user.fullName || user.email}"
-                                    class="text-indigo-600 hover:text-indigo-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
-                                    onclick="editUser(${user.id})"
-                                >
-                                    {{ comp.actionIcon('edit') }}
-                                </button>
-                                <button
-                                    aria-label="Supprimer l'utilisateur ${user.fullName || user.email}"
-                                    class="text-red-600 hover:text-red-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 cursor-pointer"
-                                    onclick="deleteUser(${user.id}, '${user.fullName || user.email}')"
-                                >
-                                    {{ comp.actionIcon('delete') }}
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                `).join('');
-            }
-
-            // Fonction utilitaire pour échapper le HTML
-            function escapeHtml(unsafe) {
-                if (unsafe === null || unsafe === undefined) return '';
-                return unsafe
-                    .toString()
-                    .replace(/&/g, "&amp;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;")
-                    .replace(/"/g, "&quot;")
-                    .replace(/'/g, "&#039;");
-            }
-
-            // Fonction pour formater les rôles des utilisateurs
-            function formatRoles(roles) {
-                if (!roles || !Array.isArray(roles)) return 'N/A';
-
-                return roles.map(role => {
-                    const roleName = typeof role === 'string' ? role : role.value;
-                    const roleClass = roleName.includes('ADMIN') ? 'bg-red-100 text-red-800' :
-                        roleName.includes('USER') ? 'bg-green-100 text-green-800' :
-                            'bg-blue-100 text-blue-800';
-                    const roleLabel = availableRoles.find(r => r.value === roleName)?.label;
-
-                    return `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${roleClass}">
-                        ${roleLabel}
-                    </span>`;
-                }).join(' ');
-            }
-
-            // Fonction pour afficher une erreur
-            function displayError(message) {
-                usersTableBody.innerHTML = `
-                    <tr>
-                        <td colspan="6" class="px-6 py-4 text-center text-red-500">
-                            ${escapeHtml(message)}
-                        </td>
-                    </tr>
-                `;
-            }
-
-            // Gestion de la recherche utilisateur
-            userSearchInput.addEventListener('input', debounce(function() {
-                userState.searchTerm = this.value;
-                userState.page = 1;
-                userState.hasMore = true;
-                userState.users = [];
-                fetchUsers();
-            }, 300));
-
-            // Fonction utilitaire de debounce
-            function debounce(func, wait) {
-                let timeout;
-                return function() {
-                    const context = this;
-                    const args = arguments;
-                    clearTimeout(timeout);
-                    timeout = setTimeout(() => {
-                        func.apply(context, args);
-                    }, wait);
-                };
-            }
-
-            // Observer l'intersection pour charger plus d'utilisateurs au défilement
-            const observer = new IntersectionObserver((entries) => {
-                if (entries[0].isIntersecting && userState.selectedTab === 'tab-2') {
-                    fetchUsers();
-                }
-            }, { threshold: 0.5 });
-
-            observer.observe(endOfUsersMessage);
-
-            // Fonctions de gestion des utilisateurs (à exposer globalement pour les appels onclick)
-            window.deleteUser = function(userId, userFullName) {
-                if (confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur ${userFullName} ?`)) {
-                    fetch(`/api/user/${userId}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': '{{ tokens.delete_user }}'
-                        },
-                        body: JSON.stringify({ _token: '{{ tokens.delete_user }}' })
-                    })
-                        .then(response => {
-                            if (!response.ok) throw new Error('Erreur lors de la suppression');
-                            return response.json();
-                        })
-                        .then(data => {
-                            if (data.status === 'success') {
-                                // Supprimer l'utilisateur du tableau et de l'état
-                                const userIndex = userState.users.findIndex(u => u.id === userId);
-                                if (userIndex !== -1) {
-                                    userState.users.splice(userIndex, 1);
-                                    renderUsers();
-                                }
-
-                                // Supprimer visuellement la ligne
-                                const userRow = document.getElementById(`user-row-${userId}`);
-                                if (userRow) {
-                                    userRow.classList.add('transition-opacity', 'duration-300', 'opacity-0');
-                                    setTimeout(() => {
-                                        userRow.remove();
-                                    }, 300);
-                                }
-                            } else {
-                                throw new Error(data.message || 'Erreur lors de la suppression');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Erreur:', error);
-                            alert(`Erreur lors de la suppression: ${error.message}`);
-                        });
-                }
-            };
-
-            // Gestion du modal utilisateur
-            const userModal = document.getElementById('user-modal');
-            const userForm = document.getElementById('user-form');
-            const userModalTitle = document.getElementById('user-modal-title');
-            const addUserBtn = document.getElementById('add-user-btn');
-            const closeModalBtn = document.getElementById('close-modal-btn');
-            const cancelBtn = document.getElementById('cancel-btn');
-            const saveUserBtn = document.getElementById('save-user-btn');
-            const passwordField = document.getElementById('password-field');
-            const userRolesContainer = document.getElementById('user-roles');
-            const formError = document.getElementById('form-error');
-
-            // Fonction pour générer les options de rôles
-            function generateRoleOptions(selectedRoles = []) {
-                userRolesContainer.innerHTML = '';
-
-                availableRoles.forEach(role => {
-                    const isChecked = selectedRoles.includes(role.value) || role.default;
-
-                    const roleDiv = document.createElement('div');
-                    roleDiv.className = `flex items-center`;
-                    if (role.hidden) {
-                        roleDiv.classList.add('hidden');
-                    }
-
-                    roleDiv.innerHTML = `
-                        <input type="checkbox" id="role-${role.value}" name="roles[]" value="${role.value}" ${role.hidden ? 'disabled' : ''}
-                               class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                               ${isChecked ? 'checked' : ''}>
-                        <label for="role-${role.value}" class="ml-2 block text-sm text-gray-900">
-                            ${role.label}
-                        </label>
-                    `;
-
-                    userRolesContainer.appendChild(roleDiv);
-                });
-            }
-
-            // Fonction pour ouvrir le modal en mode création
-            function openCreateUserModal() {
-                // Réinitialiser le formulaire
-                userForm.reset();
-                document.getElementById('user-id').value = '';
-                document.getElementById('csrf-token').value = '{{ tokens.create_user }}';
-
-                // Définir le titre
-                userModalTitle.textContent = 'Ajouter un utilisateur';
-
-                // Afficher le champ mot de passe
-                passwordField.classList.remove('hidden');
-
-                // Générer les options de rôles
-                generateRoleOptions();
-
-                // Afficher le modal
-                userModal.classList.remove('hidden');
-
-                // Cacher les messages d'erreur
-                hideAllErrors();
-            }
-
-            // Fonction pour ouvrir le modal en mode édition
-            async function openEditUserModal(userId) {
-                try {
-                    // Réinitialiser le formulaire
-                    userForm.reset();
-                    hideAllErrors();
-
-                    // Afficher un indicateur de chargement
-                    userModalTitle.textContent = 'Chargement...';
-
-                    // Récupérer les données de l'utilisateur
-                    const response = await fetch(`/api/user/${userId}`);
-                    if (!response.ok) throw new Error('Erreur lors de la récupération des données utilisateur');
-
-                    const data = await response.json();
-                    const user = data.user;
-
-                    // Remplir le formulaire
-                    document.getElementById('user-id').value = user.id;
-                    document.getElementById('user-email').value = user.email;
-                    document.getElementById('user-firstname').value = user.firstname;
-                    document.getElementById('user-lastname').value = user.lastname;
-                    document.getElementById('csrf-token').value = '{{ tokens.update_user }}';
-
-                    // Cacher le champ mot de passe en mode édition
-                    passwordField.classList.add('hidden');
-                    document.getElementById('user-password').removeAttribute('required');
-
-                    // Définir le titre
-                    userModalTitle.textContent = `Modifier l'utilisateur: ${user.fullName || user.email}`;
-
-                    // Générer les options de rôles avec les rôles de l'utilisateur sélectionnés
-                    const userRoles = user.roles.map(role => typeof role === 'object' ? role.value : role);
-                    generateRoleOptions(userRoles);
-
-                    // Afficher le modal
-                    userModal.classList.remove('hidden');
-                } catch (error) {
-                    console.error('Erreur:', error);
-                    alert(`Erreur lors de la récupération des données: ${error.message}`);
-                }
-            }
-
-            // Fonction pour fermer le modal
-            function closeUserModal() {
-                userModal.classList.add('hidden');
-                hideAllErrors();
-            }
-
-            // Fonction pour cacher tous les messages d'erreur
-            function hideAllErrors() {
-                formError.classList.add('hidden');
-                formError.textContent = '';
-
-                // Cacher les erreurs individuelles des champs
-                document.querySelectorAll('[id$="-error"]').forEach(el => {
-                    el.classList.add('hidden');
-                    el.textContent = '';
-                });
-            }
-
-            // Fonction pour afficher les erreurs du formulaire
-            function displayFormErrors(errors) {
-                // Afficher l'erreur globale si présente
-                if (errors.global) {
-                    formError.textContent = errors.global;
-                    formError.classList.remove('hidden');
-                }
-
-                // Afficher les erreurs par champ
-                Object.keys(errors).forEach(field => {
-                    if (field !== 'global') {
-                        const errorEl = document.getElementById(`${field}-error`);
-                        if (errorEl) {
-                            errorEl.textContent = errors[field];
-                            errorEl.classList.remove('hidden');
-                        }
-                    }
-                });
-            }
-
-            // Fonction pour enregistrer l'utilisateur
-            async function saveUser(event) {
-                event.preventDefault();
-
-                // Run validation before proceeding
-                if (!validateUserForm()) {
-                    return;
-                }
-
-                // Cacher les messages d'erreur existants
-                hideAllErrors();
-
-                // Récupérer les données du formulaire
-                const userId = document.getElementById('user-id').value;
-                const isEditing = userId !== '';
-
-                // Vérifier qu'au moins un rôle est sélectionné
-                const roleCheckboxes = document.querySelectorAll('input[name="roles[]"]:checked');
-                if (roleCheckboxes.length === 0) {
-                    displayFormErrors({ roles: 'Veuillez sélectionner au moins un rôle' });
-                    return;
-                }
-
-                // Construire les données du formulaire
-                const formData = {
-                    email: document.getElementById('user-email').value,
-                    firstname: document.getElementById('user-firstname').value,
-                    lastname: document.getElementById('user-lastname').value,
-                    roles: Array.from(roleCheckboxes).map(cb => cb.value),
-                    _token: document.getElementById('csrf-token').value
-                };
-
-                // Ajouter le mot de passe uniquement en création
-                if (!isEditing) {
-                    formData.password = document.getElementById('user-password').value;
-                }
-
-                try {
-                    // Désactiver le bouton pendant l'envoi
-                    saveUserBtn.disabled = true;
-                    saveUserBtn.textContent = 'Enregistrement...';
-
-                    // Définir l'URL en fonction du mode (création ou édition)
-                    const url = isEditing ? `/api/user/${userId}/edit` : '/api/user/new';
-
-                    // Envoyer la requête
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': formData._token
-                        },
-                        body: JSON.stringify(formData)
-                    });
-
-                    const data = await response.json();
-
-                    if (data.status === 'success') {
-                        // Fermer le modal
-                        closeUserModal();
-
-                        // Rafraîchir la liste des utilisateurs
-                        userState.page = 1;
-                        userState.users = [];
-                        userState.hasMore = true;
-                        fetchUsers();
-                    } else {
-                        // Afficher les erreurs
-                        const errors = {
-                            global: 'Veuillez corriger les erreurs dans le formulaire'
-                        };
-
-                        // Traiter les erreurs spécifiques aux champs si disponibles
-                        if (data.form && data.form.errors) {
-                            Object.keys(data.form.errors).forEach(field => {
-                                errors[field] = data.form.errors[field];
-                            });
-                        }
-
-                        displayFormErrors(errors);
-                    }
-                } catch (error) {
-                    console.error('Erreur:', error);
-                    displayFormErrors({ global: `Une erreur est survenue: ${error.message}` });
-                } finally {
-                    // Réactiver le bouton
-                    saveUserBtn.disabled = false;
-                    saveUserBtn.textContent = 'Enregistrer';
-                }
-            }
-
-            // Client-side form validation
-            function validateUserForm() {
-                let isValid = true;
-                hideAllErrors();
-
-                // Email validation
-                const emailField = document.getElementById('user-email');
-                const emailValue = emailField.value.trim();
-                if (!emailValue) {
-                    displayFieldError('email', 'L\'email est obligatoire');
-                    isValid = false;
-                } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
-                    displayFieldError('email', 'Veuillez entrer une adresse email valide');
-                    isValid = false;
-                }
-
-                // First name validation
-                const firstnameField = document.getElementById('user-firstname');
-                if (!firstnameField.value.trim()) {
-                    displayFieldError('firstname', 'Le prénom est obligatoire');
-                    isValid = false;
-                }
-
-                // Last name validation
-                const lastnameField = document.getElementById('user-lastname');
-                if (!lastnameField.value.trim()) {
-                    displayFieldError('lastname', 'Le nom est obligatoire');
-                    isValid = false;
-                }
-
-                // Password validation (only in creation mode)
-                const passwordField = document.getElementById('user-password');
-                const userId = document.getElementById('user-id').value;
-                if (!userId && (!passwordField.value || passwordField.value.length < 8)) {
-                    displayFieldError('password', 'Le mot de passe doit contenir au moins 8 caractères');
-                    isValid = false;
-                }
-
-                // Password validation (only in creation mode) — complexity check (at least one special character)
-                if (!userId && !/[!@#$%^&*(),.?":{}|<>]/.test(passwordField.value)) {
-                    displayFieldError('password', 'Le mot de passe doit contenir au moins un caractère spécial');
-                    isValid = false;
-                }
-
-                // Role validation
-                const roleCheckboxes = document.querySelectorAll('input[name="roles[]"]:checked');
-                if (roleCheckboxes.length === 0) {
-                    displayFieldError('roles', 'Veuillez sélectionner au moins un rôle');
-                    isValid = false;
-                }
-
-                return isValid;
-            }
-
-            // Helper for displaying individual field errors
-            function displayFieldError(field, message) {
-                const errorEl = document.getElementById(`${field}-error`);
-                if (errorEl) {
-                    errorEl.textContent = message;
-                    errorEl.classList.remove('hidden');
-                }
-            }
-
-            // Événements pour le modal et le formulaire
-            addUserBtn.addEventListener('click', openCreateUserModal);
-            closeModalBtn.addEventListener('click', closeUserModal);
-            cancelBtn.addEventListener('click', closeUserModal);
-            saveUserBtn.addEventListener('click', saveUser);
-
-            // Exposer la fonction d'édition pour les boutons d'action
-            window.editUser = function(userId) {
-                openEditUserModal(userId);
-            };
-        });
-    </script>
+    <!-- Modal pour ajouter/modifier un cours -->
+    <div id="course-modal" class="fixed inset-0 bg-gray-500/75 flex items-center justify-center hidden z-50" role="dialog" aria-labelledby="course-modal-title" aria-modal="true">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden" role="document">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 id="course-modal-title" class="text-lg font-medium text-gray-900">Ajouter un cours</h3>
+                <button id="course-close-btn" class="text-gray-400 hover:text-gray-500" aria-label="Fermer">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="px-6 py-4">
+                <form id="course-form">
+                    <input type="hidden" id="course-id" name="id" value="">
+                    <div id="course-error" class="mb-4 text-red-500 hidden"></div>
+                    <div class="mb-4">
+                        <label for="course-name" class="block text-sm font-medium text-gray-700 mb-1">Nom <span class="text-red-500">*</span></label>
+                        <input type="text" id="course-name" name="name" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label for="course-description" class="block text-sm font-medium text-gray-700 mb-1">Description <span class="text-red-500">*</span></label>
+                        <textarea id="course-description" name="description" required rows="3"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                    </div>
+                    <div class="mb-4">
+                        <label for="course-image" class="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
+                        <input type="url" id="course-image" name="image"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </form>
+            </div>
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-2">
+                <button id="course-cancel-btn" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    Annuler
+                </button>
+                <button id="course-save-btn" class="px-4 py-2 bg-[#37A0C9] text-white rounded-md hover:bg-[#2c8aa8] focus:outline-none focus:ring-2 focus:ring-[#37A0C9] focus:ring-offset-2">
+                    Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pour ajouter/modifier un groupe -->
+    <div id="group-modal" class="fixed inset-0 bg-gray-500/75 flex items-center justify-center hidden z-50" role="dialog" aria-labelledby="group-modal-title" aria-modal="true">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 id="group-modal-title" class="text-lg font-medium text-gray-900">Ajouter un groupe</h3>
+                <button id="group-close-btn" class="text-gray-400 hover:text-gray-500" aria-label="Fermer">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="px-6 py-4">
+                <form id="group-form">
+                    <input type="hidden" id="group-id" name="id">
+                    <input type="hidden" id="group-course-id" name="courseUnitId"> {# Changed from courseSlug to courseUnitId to match DTO #}
+                    <div id="group-error" class="mb-4 text-red-500 hidden"></div>
+                    <div class="mb-4">
+                        <label for="group-name" class="block text-sm font-medium text-gray-700 mb-1">Nom <span class="text-red-500">*</span></label>
+                        <input type="text" id="group-name" name="name" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label for="group-room" class="block text-sm font-medium text-gray-700 mb-1">Salle <span class="text-red-500">*</span></label>
+                        <input type="text" id="group-room" name="room" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label for="group-day" class="block text-sm font-medium text-gray-700 mb-1">Jour (0–6) <span class="text-red-500">*</span></label>
+                        <input type="number" min="0" max="6" id="group-day" name="dayOfWeek" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label for="group-start" class="block text-sm font-medium text-gray-700 mb-1">Début <span class="text-red-500">*</span></label>
+                        <input type="time" id="group-start" name="startTime" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label for="group-end" class="block text-sm font-medium text-gray-700 mb-1">Fin <span class="text-red-500">*</span></label>
+                        <input type="time" id="group-end" name="endTime" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </form>
+            </div>
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-2">
+                <button id="group-cancel-btn" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    Annuler
+                </button>
+                <button id="group-save-btn" class="px-4 py-2 bg-[#37A0C9] text-white rounded-md hover:bg-[#2c8aa8] focus:outline-none focus:ring-2 focus:ring-[#37A0C9] focus:ring-offset-2">
+                    Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal pour la gestion des membres d'un groupe -->
+    <div id="group-members-modal" class="fixed inset-0 bg-gray-500/75 flex items-center justify-center hidden z-50" role="dialog" aria-labelledby="group-members-modal-title" aria-modal="true">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 id="group-members-modal-title" class="text-lg font-medium text-gray-900">Gestion des membres du groupe <span id="group-members-group-name"></span></h3>
+                <button id="group-members-close-btn" class="text-gray-400 hover:text-gray-500" aria-label="Fermer">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="px-6 py-4">
+                <div id="members-panel">
+                    <div class="flex justify-between items-center mb-4">
+                        <h4 class="text-lg font-medium">Liste des membres</h4>
+                        <div class="flex space-x-2">
+                            <button id="add-teacher-btn" class="px-4 py-2 bg-[#37A0C9] text-white rounded-md hover:bg-[#2c8aa8] focus:outline-none focus:ring-2 focus:ring-[#37A0C9] focus:ring-offset-2">
+                                + Ajouter un professeur
+                            </button>
+                            <button id="add-student-btn" class="px-4 py-2 bg-[#37A0C9] text-white rounded-md hover:bg-[#2c8aa8] focus:outline-none focus:ring-2 focus:ring-[#37A0C9] focus:ring-offset-2">
+                                + Ajouter un étudiant
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white border border-gray-200 rounded-md">
+                            <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rôle</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                            </thead>
+                            <tbody id="members-table-body">
+                            <tr id="members-loader" class="text-center">
+                                <td colspan="5" class="px-6 py-4">
+                                    <div class="flex justify-center items-center gap-2">
+                                        <svg class="animate-spin h-5 w-5 text-[#37A0C9]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Chargement des membres...
+                                    </div>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Indicateur de chargement pour le défilement infini -->
+                    <div id="members-pagination-loader" class="py-4 text-center hidden">
+                        <div class="flex justify-center items-center gap-2">
+                            <svg class="animate-spin h-5 w-5 text-[#37A0C9]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Chargement des membres supplémentaires...
+                        </div>
+                    </div>
+
+                    <!-- Fin de liste -->
+                    <div id="end-of-members" class="py-4 text-center text-gray-500 hidden">
+                        Tous les membres ont été chargés
+                    </div>
+
+                    <!-- Élément sentinel pour le défilement infini -->
+                    <div id="members-scroll-sentinel" class="h-4"></div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-end">
+                <button id="group-members-close-btn-footer" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
 {% endblock %}
