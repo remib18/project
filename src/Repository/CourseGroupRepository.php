@@ -5,6 +5,7 @@ namespace App\Repository;
 use App\Entity\CourseGroup;
 use App\Entity\CourseUnit;
 use App\Entity\User;
+use DateTimeInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\Persistence\ManagerRegistry;
@@ -42,10 +43,10 @@ class CourseGroupRepository extends ServiceEntityRepository
      * Find current ongoing course groups for a user with eager loading
      *
      * @param User $user
-     * @param \DateTimeInterface|null $dateTime
+     * @param DateTimeInterface|null $dateTime
      * @return array<CourseGroup>
      */
-    public function findCurrentGroupsForUser(User $user, \DateTimeInterface $dateTime = null): array
+    public function findCurrentGroupsForUser(User $user, ?DateTimeInterface $dateTime = null): array
     {
         $dateTime = $dateTime ?? new \DateTime();
         $dayOfWeek = (int)$dateTime->format('N') - 1; // 0 (Monday) to 6 (Sunday)
@@ -69,11 +70,11 @@ class CourseGroupRepository extends ServiceEntityRepository
      * Find upcoming course groups for a user with eager loading
      *
      * @param User $user
-     * @param \DateTimeInterface|null $dateTime
+     * @param DateTimeInterface|null $dateTime
      * @param int $limit
      * @return array<CourseGroup>
      */
-    public function findUpcomingGroupsForUser(User $user, \DateTimeInterface $dateTime = null, int $limit = 3): array
+    public function findUpcomingGroupsForUser(User $user, ?DateTimeInterface $dateTime = null, int $limit = 3): array
     {
         $dateTime = $dateTime ?? new \DateTime();
         $dayOfWeek = (int)$dateTime->format('N') - 1; // 0 (Monday) to 6 (Sunday)

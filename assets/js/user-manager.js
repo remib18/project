@@ -24,13 +24,18 @@ function renderRole(role) {
     }
 }
 
+function renderFullName(user) {
+    const ucFirst = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+    return `${escapeHtml(user.lastname).toUpperCase()} ${ucFirst(escapeHtml(user.firstname))}`;
+}
+
 function renderUsers(users) {
     const frag = document.createDocumentFragment();
     users.forEach(u => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
       <td class="px-6 py-4">${escapeHtml(u.id)}</td>
-      <td class="px-6 py-4">${escapeHtml(u.fullName)}</td>
+      <td class="px-6 py-4">${renderFullName(u)}</td>
       <td class="px-6 py-4">${escapeHtml(u.email)}</td>
       <td class="px-6 py-4">${escapeHtml(u.roles.filter(r => r !== 'ROLE_USER').map(renderRole).join(', '))}</td>
       <td class="px-6 py-4">
@@ -81,6 +86,40 @@ function displayValidationErrors(errors) {
     }
 }
 
+function checkRoleCompatibility(role, checkbox) {
+    const incompatibleRoles = INCOMPATIBLE_ROLES[role.value];
+    const isSelected = checkbox.checked;
+
+    if (incompatibleRoles) {
+        incompatibleRoles.forEach(incompatibleRole => {
+            const incompatibleCheckbox = document.getElementById(`role-${incompatibleRole}`);
+            const incompatibleLabel = document.querySelector(`label[for="role-${incompatibleRole}"]`);
+
+            if (incompatibleCheckbox) {
+                // Check if the incompatible role should be disabled
+                let shouldDisable = isSelected;
+
+                // If we're unchecking, we need to check if any other roles conflict with the incompatible role
+                if (!isSelected) {
+                    // Find all roles that are incompatible with the incompatible role
+                    const conflictingRoles = Object.entries(INCOMPATIBLE_ROLES)
+                        .filter(([_, incompatibles]) => incompatibles.includes(incompatibleRole))
+                        .map(([roleValue, _]) => roleValue);
+
+                    // Check if any of these conflicting roles are still selected
+                    shouldDisable = conflictingRoles.some(conflictingRole => {
+                        const conflictingCheckbox = document.getElementById(`role-${conflictingRole}`);
+                        return conflictingCheckbox && conflictingCheckbox.checked;
+                    });
+                }
+
+                incompatibleCheckbox.disabled = shouldDisable;
+                incompatibleLabel.classList.toggle('opacity-50', shouldDisable);
+            }
+        });
+    }
+}
+
 function populateRolesCheckboxes(selectedRoles = []) {
     const rolesContainer = document.getElementById('user-roles');
     rolesContainer.innerHTML = '';
@@ -101,20 +140,13 @@ function populateRolesCheckboxes(selectedRoles = []) {
 
         // Add event listener to checkbox for role incompatibilities => disable incompatible roles
         const checkbox = document.getElementById(`role-${role.value}`);
-        checkbox.addEventListener('change', () => {
-            const incompatibleRoles = INCOMPATIBLE_ROLES[role.value];
-            const isSelected = checkbox.checked;
-            if (incompatibleRoles) {
-                incompatibleRoles.forEach(incompatibleRole => {
-                    const incompatibleCheckbox = document.getElementById(`role-${incompatibleRole}`);
-                    const incompatibleLabel = document.querySelector(`label[for="role-${incompatibleRole}"]`);
-                    if (incompatibleCheckbox) {
-                        incompatibleCheckbox.disabled = isSelected;
-                        incompatibleLabel.classList.toggle('opacity-50', isSelected);
-                    }
-                });
-            }
-        });
+        checkbox.addEventListener('change', () => checkRoleCompatibility(role, checkbox));
+    });
+
+    // Check role compatibilities AFTER all checkboxes are created
+    AVAILABLE_ROLES.forEach(role => {
+        const checkbox = document.getElementById(`role-${role.value}`);
+        checkRoleCompatibility(role, checkbox);
     });
 }
 
