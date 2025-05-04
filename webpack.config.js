@@ -21,6 +21,7 @@ Encore
      * and one CSS file (e.g. app.css) if your JavaScript imports CSS.
      */
     .addEntry('app', './assets/app.js')
+    .addEntry('course-activity-manager', './assets/js/course-activity-manager.js')
     .addEntry('course-manager', './assets/js/course-manager.js')
     .addEntry('tab-manager', './assets/js/tab-manager.js')
     .addEntry('user-manager', './assets/js/user-manager.js')

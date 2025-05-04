@@ -3,10 +3,12 @@
 namespace App\Repository;
 
 use App\Entity\CourseGroup;
+use App\Entity\CourseUnit;
 use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\Security\Core\User\UserInterface;
 
 /**
  * @extends ServiceEntityRepository<CourseGroup>
@@ -155,5 +157,28 @@ class CourseGroupRepository extends ServiceEntityRepository
             ->setParameter('room', $room)
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * Check if a user is a member of any group in a course unit
+     *
+     * @param UserInterface $user
+     * @param CourseUnit $courseUnit
+     * @return bool
+     */
+    public function isUserInCourseUnit(UserInterface $user, CourseUnit $courseUnit): bool
+    {
+        $qb = $this->createQueryBuilder('g')
+            ->select('COUNT(g.id)')
+            ->innerJoin('g.members', 'm')
+            ->innerJoin('g.unit', 'u')
+            ->where('m = :user')
+            ->andWhere('u = :courseUnit')
+            ->setParameter('user', $user)
+            ->setParameter('courseUnit', $courseUnit);
+
+        $count = $qb->getQuery()->getSingleScalarResult();
+
+        return $count > 0;
     }
 }

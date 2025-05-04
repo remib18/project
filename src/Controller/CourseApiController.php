@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\DTO\Request\CourseActivityPinRequest;
 use App\DTO\Request\CourseGroupRequest;
 use App\DTO\Request\CourseUnitRequest;
 use App\DTO\Request\GroupMembershipRequest;
@@ -10,6 +11,7 @@ use App\Entity\CourseSchedule;
 use App\Entity\CourseUnit;
 use App\Entity\Role;
 use App\Mapper\CourseMapper;
+use App\Repository\CourseActivityRepository;
 use App\Repository\CourseGroupRepository;
 use App\Repository\CourseUnitRepository;
 use App\Repository\UserRepository;
@@ -982,6 +984,163 @@ final class CourseApiController extends AbstractApiController
                 $totalMembers,
                 ($offset + count($members) < $totalMembers)
             );
+        } catch (Exception $e) {
+            return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Pin or unpin a group activity with optional message
+     * Only accessible for administrators and teachers who are members of the course
+     *
+     * @param int $id - The course activity ID
+     * @param Request $request
+     * @param CourseActivityRepository $courseActivityRepository
+     * @param CourseGroupRepository $courseGroupRepository
+     * @param EntityManagerInterface $entityManager
+     * @param RequestValidator $requestValidator
+     * @return JsonResponse
+     */
+    #[Route('/activity/{id}/pin', name: 'app_course_api_pin_activity', methods: ['POST'])]
+    public function pinActivity(
+        int $id,
+        Request $request,
+        CourseActivityRepository $courseActivityRepository,
+        CourseGroupRepository $courseGroupRepository,
+        EntityManagerInterface $entityManager,
+        RequestValidator $requestValidator
+    ): JsonResponse {
+        try {
+            // Find course activity
+            $courseActivity = $courseActivityRepository->find($id);
+            if (!$courseActivity) {
+                return $this->createErrorResponse("Course activity with ID {$id} not found", Response::HTTP_NOT_FOUND);
+            }
+
+            // Get current pinned status
+            $currentlyPinned = $courseActivity->isPinned();
+
+            // Validate request using RequestDTO
+            $validation = $requestValidator->validateRequestDto(
+                $request,
+                CourseActivityPinRequest::class,
+                'course_activity_pin'
+            );
+
+            if (!$validation['isValid']) {
+                return $this->createErrorResponse(
+                    'Validation failed',
+                    Response::HTTP_BAD_REQUEST,
+                    $validation['errors']
+                );
+            }
+
+            /** @var CourseActivityPinRequest $dto */
+            $dto = $validation['dto'];
+
+            // Additional validation based on operation type
+            $operationErrors = $dto->validateOperation($currentlyPinned);
+            if (!empty($operationErrors)) {
+                return $this->createErrorResponse(
+                    'Validation failed',
+                    Response::HTTP_BAD_REQUEST,
+                    $operationErrors
+                );
+            }
+
+            $user = $this->getUser();
+            $courseUnit = $courseActivity->getCourseUnit();
+
+            // Check if user has permission
+            if (!in_array('ROLE_ADMIN', $user->getRoles())) {
+                // For teachers, verify they are members of at least one group in this course
+                if (!in_array('ROLE_TEACHER', $user->getRoles()) ||
+                    !$courseGroupRepository->isUserInCourseUnit($user, $courseUnit)) {
+                    return $this->createErrorResponse('Permission denied', Response::HTTP_FORBIDDEN);
+                }
+            }
+
+            // Perform the pin/unpin operation
+            if (!$currentlyPinned) {
+                // Pin the activity
+                $courseActivity->setIsPinned(true);
+                $courseActivity->setPinnedMessage($dto->pinnedMessage);
+            } else {
+                // Unpin the activity
+                $courseActivity->setIsPinned(false);
+                $courseActivity->setPinnedMessage(null);
+            }
+
+            // Save changes
+            $entityManager->flush();
+
+            // Return success response
+            return $this->createSuccessResponse([
+                'isPinned' => $courseActivity->isPinned(),
+                'pinnedMessage' => $courseActivity->getPinnedMessage()
+            ]);
+        } catch (Exception $e) {
+            return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Delete a course activity
+     * Only accessible for administrators and teachers
+     *
+     * @param int $id - The course activity ID
+     * @param Request $request
+     * @param CourseActivityRepository $courseActivityRepository
+     * @param CourseGroupRepository $courseGroupRepository
+     * @param EntityManagerInterface $entityManager
+     * @return JsonResponse
+     */
+    #[Route('/activity/{id}', name: 'app_course_api_delete_activity', methods: ['DELETE'])]
+    public function deleteActivity(
+        int $id,
+        Request $request,
+        CourseActivityRepository $courseActivityRepository,
+        CourseGroupRepository $courseGroupRepository,
+        EntityManagerInterface $entityManager
+    ): JsonResponse {
+        try {
+            // Decode JSON request body
+            $data = json_decode($request->getContent(), true);
+            if (!$data) {
+                return $this->createErrorResponse('Invalid JSON request');
+            }
+
+            // Validate CSRF token
+            if (!isset($data['_token']) || !$this->csrfTokenManager->isTokenValid(
+                    new CsrfToken('course_activity_delete', $data['_token'])
+                )) {
+                return $this->createErrorResponse('Invalid CSRF token');
+            }
+
+            // Find course activity
+            $courseActivity = $courseActivityRepository->find($id);
+            if (!$courseActivity) {
+                return $this->createErrorResponse("Course activity with ID {$id} not found", Response::HTTP_NOT_FOUND);
+            }
+
+            $user = $this->getUser();
+            $courseUnit = $courseActivity->getCourseUnit();
+
+            // Check if user has permission
+            if (!in_array('ROLE_ADMIN', $user->getRoles())) {
+                // For teachers, verify they are members of at least one group in this course
+                if (!in_array('ROLE_TEACHER', $user->getRoles()) ||
+                    !$courseGroupRepository->isUserInCourseUnit($user, $courseUnit)) {
+                    return $this->createErrorResponse('Permission denied', Response::HTTP_FORBIDDEN);
+                }
+            }
+
+            // Delete course activity
+            $entityManager->remove($courseActivity);
+            $entityManager->flush();
+
+            // Return success response
+            return $this->createSuccessResponse();
         } catch (Exception $e) {
             return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
