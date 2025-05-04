@@ -38,10 +38,10 @@
                     <span class="text-gray-500 text-sm font-normal ml-2">Laisser vide pour ne pas changer.</span></label>
                 <input type="password" id="confirm_password" name="confirm_password" placeholder="•••••••••"
                        class="w-full border border-gray-300 rounded-md px-4 py-2 shadow-sm focus:ring-[#37A0C9] focus:border-[#37A0C9]">
-                <!-- Message d'erreur -->
-                <p id="password-error" class="text-sm text-red-600 hidden mt-2"></p>
-                <!-- Conditions de mot de passe -->
+                {# Conditions de mot de passe #}
                 <p class="text-gray-500 text-sm mt-2">Doit contenir au moins {{ password_min_length }} caractères dont au moins 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère special.</p>
+                {# Message d'erreur si besoin #}
+                <p id="password-error" class="text-sm text-red-600 hidden mt-2"></p>
             </div>
             <div class="flex justify-center">
                 <button type="submit"
