@@ -20,6 +20,12 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 #[Route('/api/user')]
 final class UserController extends AbstractController
 {
+    private const INCOMPATIBLE_ROLES = [
+        'ROLE_ADMIN' => ['ROLE_STUDENT'],
+        'ROLE_TEACHER' => ['ROLE_STUDENT'],
+        'ROLE_STUDENT' => ['ROLE_ADMIN', 'ROLE_TEACHER']
+    ];
+
     public function __construct(
         private readonly UserMapper $userMapper
     )
@@ -103,7 +109,10 @@ final class UserController extends AbstractController
             $passwordErrors['password'] = 'Le mot de passe est requis';
         }
 
-        if ($form->isSubmitted() && $form->isValid()) {
+        // Check role incompatibilities
+        $roleErrors = $this->validateRoleIncompatibilities($data['roles'] ?? []);
+
+        if ($form->isSubmitted() && $form->isValid() && empty($roleErrors)) {
             // Encoder le mot de passe si nécessaire
             if (!empty($data['password'])) {
                 $user->setPassword($hasher->hashPassword($user, $data['password']));
@@ -127,6 +136,11 @@ final class UserController extends AbstractController
         // Add password errors
         if (!empty($passwordErrors)) {
             $errors = array_merge($errors, $passwordErrors);
+        }
+
+        // Add role errors
+        if (!empty($roleErrors)) {
+            $errors = array_merge($errors, $roleErrors);
         }
 
         return $this->json([
@@ -202,7 +216,10 @@ final class UserController extends AbstractController
             }
         }
 
-        if ($form->isSubmitted() && $form->isValid()) {
+        // Check role incompatibilities
+        $roleErrors = $this->validateRoleIncompatibilities($data['roles'] ?? []);
+
+        if ($form->isSubmitted() && $form->isValid() && empty($roleErrors)) {
             $entityManager->flush();
 
             if (!empty($plainPassword)) {
@@ -223,6 +240,11 @@ final class UserController extends AbstractController
         // Add password errors
         if (!empty($passwordErrors)) {
             $errors = array_merge($errors, $passwordErrors);
+        }
+
+        // Add role errors
+        if (!empty($roleErrors)) {
+            $errors = array_merge($errors, $roleErrors);
         }
 
         return $this->json([
@@ -247,5 +269,53 @@ final class UserController extends AbstractController
             'status' => 'error',
             'message' => 'Invalid CSRF token',
         ], Response::HTTP_BAD_REQUEST);
+    }
+
+    /**
+     * Validate role incompatibilities
+     *
+     * @param array $roles Array of role strings
+     * @return array Array of errors keyed by field name
+     */
+    private function validateRoleIncompatibilities(array $roles): array
+    {
+        $errors = [];
+
+        foreach ($roles as $role) {
+            if (isset(self::INCOMPATIBLE_ROLES[$role])) {
+                $incompatibleRoles = self::INCOMPATIBLE_ROLES[$role];
+                foreach ($incompatibleRoles as $incompatibleRole) {
+                    if (in_array($incompatibleRole, $roles, true)) {
+                        $roleLabel = $this->getRoleLabel($role);
+                        $incompatibleRoleLabel = $this->getRoleLabel($incompatibleRole);
+                        $errors['roles'] = sprintf(
+                            'Le rôle %s est incompatible avec le rôle %s',
+                            $roleLabel,
+                            $incompatibleRoleLabel
+                        );
+                        // Return early as we only need to show one error
+                        return $errors;
+                    }
+                }
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * Get human-readable label for a role
+     *
+     * @param string $role Role string
+     * @return string Human-readable label
+     */
+    private function getRoleLabel(string $role): string
+    {
+        return match($role) {
+            'ROLE_ADMIN' => 'Administrateur',
+            'ROLE_TEACHER' => 'Professeur',
+            'ROLE_STUDENT' => 'Étudiant',
+            default => $role
+        };
     }
 }

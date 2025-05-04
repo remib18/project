@@ -51,12 +51,15 @@ class CourseMapper
             throw new \InvalidArgumentException('CourseGroup must have a valid unit and schedule');
         }
 
+        $days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+
         $scheduledCourse = new ScheduledCourseDTO(
             $courseUnit->getSlug(),
             $courseUnit->getName(),
             $courseUnit->getDescription(),
             $courseUnit->getImage(),
             $group->getRoom(),
+            $days[$schedule->getDayOfWeek()],
             $schedule->getFormattedStartTime(),
             $schedule->getFormattedEndTime(),
             $group->getName()

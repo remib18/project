@@ -17,14 +17,11 @@ function renderCourseGroups(groups, courseSlug) {
 
         // Handle schedule data from the DTO
         const scheduledCourse = g.scheduledCourse || {};
-        const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-        let day = '';
         let time = '';
 
         // Extract schedule info from different possible formats
         if (g.schedule) {
             // Format from direct group data
-            day = g.schedule.dayOfWeek !== undefined ? dayNames[g.schedule.dayOfWeek] : '';
             time = g.schedule.startTime && g.schedule.endTime
                 ? `${g.schedule.startTime} - ${g.schedule.endTime}`
                 : (g.schedule.start_time && g.schedule.end_time ? `${g.schedule.start_time} - ${g.schedule.end_time}` : '');
@@ -36,7 +33,7 @@ function renderCourseGroups(groups, courseSlug) {
         tr.innerHTML = `
         <td class="px-6 py-3"></td>
         <td class="px-6 py-3" colspan="2">→ ${escapeHtml(g.name)} (<em>Salle</em>: ${escapeHtml(g.room)})</td>
-        <td class="px-6 py-3">${day} ${time}</td>
+        <td class="px-6 py-3">${g.schedule.day} ${time}</td>
         <td class="px-6 py-3 flex gap-2">
             <button data-group-id="${g.id}" data-group-name="${escapeHtml(g.name)}" class="manage-members-of-group-btn px-2 py-1 bg-[#37A0C9] rounded text-white hover:bg-[#2c8aa8] cursor-pointer">Membres</button>
             <button data-group-id="${g.id}" class="edit-group-btn px-2 py-1 bg-[#37A0C9] rounded text-white hover:bg-[#2c8aa8] cursor-pointer">Modifier</button>
