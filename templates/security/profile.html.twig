@@ -1,0 +1,108 @@
+{% extends 'layout.html.twig' %}
+
+{% block title %}Gestion de Compte{% endblock %}
+
+{% block content %}
+    <div class="max-w-3xl mx-auto p-6 space-y-6">
+        <h1 class="text-2xl font-bold mb-4">Gestion de Compte</h1>
+
+        {# Message flash en cas de succès #}
+        {% for message in app.flashes('success') %}
+            <div class="bg-green-100 text-green-800 px-4 py-2 rounded-md shadow">
+                {{ message }}
+            </div>
+        {% endfor %}
+
+        <form method="post" action="{{ path('app_profile_update') }}" class="space-y-4">
+            <div class="space-y-1">
+                <label for="first_name" class="block text-sm font-medium text-gray-700">Prénom</label>
+                <input type="text" id="first_name" name="first_name" value="{{ user.firstName }}"
+                       class="w-full border border-gray-300 rounded-md px-4 py-2 shadow-sm focus:ring-[#37A0C9] focus:border-[#37A0C9]">
+            </div>
+
+            <div class="space-y-1">
+                <label for="last_name" class="block text-sm font-medium text-gray-700">Nom</label>
+                <input type="text" id="last_name" name="last_name" value="{{ user.lastName }}"
+                       class="w-full border border-gray-300 rounded-md px-4 py-2 shadow-sm focus:ring-[#37A0C9] focus:border-[#37A0C9]">
+            </div>
+
+            <div class="space-y-1">
+                <label for="password" class="block text-sm font-medium text-gray-700">Nouveau mot de passe
+                    <span class="text-gray-500 text-sm font-normal ml-2">Laisser vide pour ne pas changer.</span></label>
+                <input type="password" id="password" name="password" placeholder="•••••••••"
+                       class="w-full border border-gray-300 rounded-md px-4 py-2 shadow-sm focus:ring-[#37A0C9] focus:border-[#37A0C9]">
+            </div>
+
+            <div class="space-y-1">
+                <label for="confirm_password" class="block text-sm font-medium text-gray-700">Confirmer le mot de passe
+                    <span class="text-gray-500 text-sm font-normal ml-2">Laisser vide pour ne pas changer.</span></label>
+                <input type="password" id="confirm_password" name="confirm_password" placeholder="•••••••••"
+                       class="w-full border border-gray-300 rounded-md px-4 py-2 shadow-sm focus:ring-[#37A0C9] focus:border-[#37A0C9]">
+                {# Conditions de mot de passe #}
+                <p class="text-gray-500 text-sm mt-2">Doit contenir au moins {{ password_min_length }} caractères dont au moins 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère special.</p>
+                {# Message d'erreur si besoin #}
+                <p id="password-error" class="text-sm text-red-600 hidden mt-2"></p>
+            </div>
+            <div class="flex justify-center">
+                <button type="submit"
+                        class="bg-[#37A0C9] hover:bg-[#2e8cb3] text-white font-medium px-6 py-2 rounded-md shadow">
+                    Mettre à jour
+                </button>
+            </div>
+
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    const form = document.querySelector('form');
+                    const password = document.getElementById('password');
+                    const confirm = document.getElementById('confirm_password');
+                    const error = document.getElementById('password-error');
+
+                    const checkPasswordConstraints = () => {
+                        const isLengthValid = password.value.length >= 8;
+                        const isUppercaseValid = /[A-Z]/.test(password.value);
+                        const isLowercaseValid = /[a-z]/.test(password.value);
+                        const isNumberValid = /[0-9]/.test(password.value);
+                        const isSpecialCharValid = /[^A-Za-z0-9]/.test(password.value);
+
+                        // Affichage des erreurs de contraintes si nécessaire
+                        if (!isLengthValid) {
+                            error.classList.remove('hidden');
+                            error.innerText = "Le mot de passe doit contenir au moins 8 caractères.";
+                            return false;
+                        } else if (!isUppercaseValid) {
+                            error.classList.remove('hidden');
+                            error.innerText = "Le mot de passe doit contenir au moins une lettre majuscule.";
+                            return false;
+                        } else if (!isLowercaseValid) {
+                            error.classList.remove('hidden');
+                            error.innerText = "Le mot de passe doit contenir au moins une lettre minuscule.";
+                            return false;
+                        } else if (!isNumberValid) {
+                            error.classList.remove('hidden');
+                            error.innerText = "Le mot de passe doit contenir au moins un chiffre.";
+                            return false;
+                        } else if (!isSpecialCharValid) {
+                            error.classList.remove('hidden');
+                            error.innerText = "Le mot de passe doit contenir au moins un caractère spécial.";
+                            return false;
+                        }
+                        error.classList.add('hidden');
+                        return true;
+                    };
+                    form.addEventListener('submit', function (e) {
+                        if (!checkPasswordConstraints()) {
+                            e.preventDefault();
+                        }
+                        if (password.value !== confirm.value) {
+                            e.preventDefault();
+                            error.classList.remove('hidden');
+                            confirm.classList.add('border-red-500');
+                            error.innerText = "Les mots de passe ne correspondent pas.";
+                        }
+                    });
+                });
+            </script>
+        </form>
+    </div>
+{% endblock %}
+
