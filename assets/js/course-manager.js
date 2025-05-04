@@ -154,7 +154,8 @@ function initCourseModal() {
         const courseSlug = courseId ? document.querySelector(`.course-row[data-course-id="${courseId}"]`)?.dataset.courseSlug : '';
         const name = document.getElementById('course-name').value;
         const description = document.getElementById('course-description').value;
-        const image = document.getElementById('course-image').value;
+        const imageFileInput = document.getElementById('course-image-file');
+        const imageFile = imageFileInput?.files?.[0] || null;
 
         if (!name || !description) {
             document.getElementById('course-error').textContent = 'Veuillez remplir tous les champs obligatoires.';
@@ -165,16 +166,15 @@ function initCourseModal() {
         try {
             const courseData = {
                 name,
-                description,
-                image
+                description
             };
 
             if (courseId && courseSlug) {
                 // Edit existing course
-                await apiService.updateCourse(courseSlug, courseData);
+                await apiService.updateCourse(courseSlug, courseData, imageFile);
             } else {
                 // Create new course
-                await apiService.createCourse(courseData);
+                await apiService.createCourse(courseData, imageFile);
             }
 
             // Hide modal and reload courses
@@ -533,13 +533,19 @@ async function editCourse(courseSlug) {
         document.getElementById('course-id').value = course.id;
         document.getElementById('course-name').value = course.name;
         document.getElementById('course-description').value = course.description;
-        document.getElementById('course-image').value = course.image || '';
 
         // Update modal title
         document.getElementById('course-modal-title').textContent = 'Modifier une UE';
 
         // Clear any previous errors
         document.getElementById('course-error').classList.add('hidden');
+
+        // Clear the file input
+        /** @type {HTMLInputElement} */
+        const fileInput = document.getElementById('course-image-file');
+        if (fileInput) {
+            fileInput.value = '';
+        }
 
         // Show modal
         document.getElementById('course-modal').classList.remove('hidden');

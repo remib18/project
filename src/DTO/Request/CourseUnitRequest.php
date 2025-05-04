@@ -2,6 +2,7 @@
 
 namespace App\DTO\Request;
 
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
@@ -27,9 +28,13 @@ final class CourseUnitRequest
     )]
     public string $description;
 
-    #[Assert\Url(message: 'Image URL must be a valid URL')]
-    #[Assert\Length(max: 255, maxMessage: 'Image URL cannot be longer than {{ limit }} characters')]
-    public ?string $image = null;
+    #[Assert\Image(
+        maxSize: '5M',
+        mimeTypes: ['image/jpeg', 'image/png'],
+        maxSizeMessage: 'The file is too large ({{ size }} {{ suffix }}). Maximum allowed size is {{ limit }} {{ suffix }}.',
+        mimeTypesMessage: 'Please upload a valid image (JPEG or PNG)'
+    )]
+    public ?UploadedFile $imageFile = null;
 
     #[Assert\NotBlank(message: 'CSRF token is required')]
     public string $_token;
@@ -37,15 +42,19 @@ final class CourseUnitRequest
     /**
      * Create DTO from request data
      * @param array $data Request data
+     * @param array|null $files File data
      * @return self
      */
-    public static function fromArray(array $data): self
+    public static function fromArray(array $data, ?array $files = null): self
     {
         $dto = new self();
         $dto->name = $data['name'] ?? '';
         $dto->description = $data['description'] ?? '';
-        $dto->image = $data['image'] ?? null;
         $dto->_token = $data['_token'] ?? '';
+
+        if ($files && isset($files['imageFile'])) {
+            $dto->imageFile = $files['imageFile'];
+        }
 
         return $dto;
     }

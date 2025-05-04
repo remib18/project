@@ -1,5 +1,3 @@
-import { fetchWithErrorHandling } from './utils.js';
-
 /**
  * API Service - Centralizes all API calls
  */
@@ -114,9 +112,10 @@ class ApiService {
     /**
      * Create a new course
      * @param {object} courseData - Course data
+     * @param {File|null} imageFile - Optional image file
      * @returns {Promise<object>} - Created course
      */
-    async createCourse(courseData) {
+    async createCourse(courseData, imageFile = null) {
         try {
             // Try different CSRF token sources
             let token = this.getCsrfToken('csrf-token-course_creation');
@@ -139,24 +138,30 @@ class ApiService {
                 throw new Error('CSRF token not found');
             }
 
-            // Log details for debugging
-            console.log('Creating course with data:', courseData);
-            console.log('Using CSRF token from:', token ? 'Found token' : 'No token');
+            // Create FormData instead of JSON
+            const formData = new FormData();
 
-            // Use the correct endpoint - the route is simply '/api/course' (POST)
-            // NOT '/api/course/new'
+            // Add course data
+            Object.keys(courseData).forEach(key => {
+                if (courseData[key] !== undefined) {
+                    formData.append(key, courseData[key]);
+                }
+            });
+
+            // Add CSRF token
+            formData.append('_token', token);
+
+            // Add image file if provided
+            if (imageFile) {
+                formData.append('imageFile', imageFile);
+            }
+
+            console.log('Creating course with data:', Object.fromEntries(formData.entries()));
+
             const endpoint = '/api/course';
-
-            console.log('Posting to:', endpoint);
             const response = await fetch(endpoint, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    ...courseData,
-                    _token: token
-                })
+                body: formData  // Don't set Content-Type header - browser will set it with boundary
             });
 
             if (!response.ok) {
@@ -174,8 +179,7 @@ class ApiService {
                 throw new Error(errorMsg);
             }
 
-            const data = await response.json();
-            return data;
+            return await response.json();
         } catch (error) {
             console.error('Error creating course:', error);
             throw error;
@@ -186,9 +190,10 @@ class ApiService {
      * Update a course
      * @param {string} slug - Course slug
      * @param {object} courseData - Updated course data
+     * @param {File|null} imageFile - Optional image file
      * @returns {Promise<object>} - Updated course
      */
-    async updateCourse(slug, courseData) {
+    async updateCourse(slug, courseData, imageFile = null) {
         const csrfToken = this.getCsrfToken('csrf-token-course_edition');
 
         // If token is missing, try to use the token from the form
@@ -199,15 +204,27 @@ class ApiService {
             throw new Error('CSRF token not found');
         }
 
+        // Create FormData instead of JSON
+        const formData = new FormData();
+
+        // Add course data
+        Object.keys(courseData).forEach(key => {
+            if (courseData[key] !== undefined) {
+                formData.append(key, courseData[key]);
+            }
+        });
+
+        // Add CSRF token
+        formData.append('_token', token);
+
+        // Add image file if provided
+        if (imageFile) {
+            formData.append('imageFile', imageFile);
+        }
+
         const response = await fetch(`/api/course/${slug}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                ...courseData,
-                _token: token
-            })
+            body: formData  // Don't set Content-Type header
         });
 
         const data = await response.json();

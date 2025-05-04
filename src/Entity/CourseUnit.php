@@ -27,7 +27,10 @@ class CourseUnit
     private ?string $description = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    #[Assert\Url(message: 'Image must be a valid URL')]
+    #[Assert\Regex(
+        pattern: '/^(https?:\/\/.*|\/.*\.(jpg|jpeg|png|webp))$/i',
+        message: 'Image must be a valid URL or file path'
+    )]
     #[Assert\Length(max: 255, maxMessage: 'Image URL cannot be longer than {{ limit }} characters')]
     private ?string $image = null;
 
