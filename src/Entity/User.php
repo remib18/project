@@ -26,7 +26,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     )]
     private ?string $email = null;
 
-    /**s
+    /**
      * @var list<string> The user roles
      */
     #[ORM\Column]
