@@ -3,6 +3,16 @@
 
 {% block title %}Cours {{ courseName }}{% endblock %}
 
+{% block javascripts %}
+    {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_TEACHER') %}
+        {# CSRF Tokens metadata to be accessed in javascript #}
+        <meta name="csrf-token-switch" content="{{ csrf_token('course_activity_pin') }}">
+        <meta name="csrf-token-delete" content="{{ csrf_token('course_activity_delete') }}">
+
+        {{ encore_entry_script_tags('course-activity-manager') }}
+    {% endif %}
+{% endblock %}
+
 {% block aside %}
 <aside class="hidden md:block w-64 bg-white rounded-t-2xl shadow-lg p-8 min-h-full shrink-0">
     <div class="mb-4">
@@ -15,7 +25,7 @@
                 <div class="space-y-2">
                     <p class="text-sm font-medium">{{ category.title }}</p>
                     {% for ressource in category.resources %}
-                        {% if ressource.target is defined %}
+                        {% if ressource.target is defined and ressource.target is not empty %}
                             <a href="{{ ressource.target }}" class="block px-2 py-0.5 rounded-sm text-sm text-[#37A0C9] hover:text-[#3C7186] hover:bg-[#E2EFF4]">
                                 {{ ressource.title }}
                             </a>
@@ -91,7 +101,7 @@
                     </div>
                     {% for ressource in category.resources %}
                         <div class="flex w-full gap-2 items-stretch">
-                            {% if ressource.target is defined %}
+                            {% if ressource.target is defined and ressource.target is not empty %}
                             <a class="contents" href="{{ ressource.target }}">
                                 {% endif %}
                                 <div class="bg-[#F3F9FB] rounded-[.5rem] p-4 flex justify-between items-center gap-4 grow shrink {{ ressource.type == 'message' ? '' : 'hover:bg-[#37A0C9]/10 cursor-pointer' }}">
@@ -114,24 +124,41 @@
                                         </div>
                                     </div>
                                 </div>
-                                {% if ressource.targer is defined %}
+                                {% if ressource.target is defined and ressource.target is not empty %}
                             </a>
                             {% endif %}
-                            <button class="px-3 py-2 bg-[#E2EFF4] hover:bg-[#37A0C9] hover:text-white rounded-sm cursor-pointer shrink-0">
-                                {{ comp.actionIcon('edit') }}
-                            </button>
-                            {% if ressource.isPinned %}
-                                <button class="px-3 py-2 bg-red-100 hover:bg-red-400 hover:text-white rounded-sm cursor-pointer shrink-0">
-                                    {{ comp.actionIcon('unpin') }}
-                                </button>
-                            {% else %}
+                            {% if is_granted('ROLE_ADMIN') or is_granted('ROLE_TEACHER') %}
                                 <button class="px-3 py-2 bg-[#E2EFF4] hover:bg-[#37A0C9] hover:text-white rounded-sm cursor-pointer shrink-0">
-                                    {{ comp.actionIcon('pin') }}
+                                    {{ comp.actionIcon('edit') }}
+                                </button>
+                                {% if ressource.isPinned %}
+                                    <button
+                                            class="px-3 py-2 bg-red-100 hover:bg-red-400 hover:text-white rounded-sm cursor-pointer shrink-0"
+                                            data-activity-unpin
+                                            data-activity-id="{{ ressource.id }}"
+                                            data-activity-name="{{ ressource.title }}"
+                                    >
+                                        {{ comp.actionIcon('unpin') }}
+                                    </button>
+                                {% else %}
+                                    <button
+                                            class="px-3 py-2 bg-[#E2EFF4] hover:bg-[#37A0C9] hover:text-white rounded-sm cursor-pointer shrink-0"
+                                            data-activity-pin
+                                            data-activity-id="{{ ressource.id }}"
+                                            data-activity-name="{{ ressource.title }}"
+                                    >
+                                        {{ comp.actionIcon('pin') }}
+                                    </button>
+                                {% endif %}
+                                <button
+                                        class="px-3 py-2 bg-red-100 hover:bg-red-400 hover:text-white rounded-sm cursor-pointer shrink-0"
+                                        data-activity-delete
+                                        data-activity-id="{{ ressource.id }}"
+                                        data-activity-name="{{ ressource.title }}"
+                                >
+                                    {{ comp.actionIcon('delete') }}
                                 </button>
                             {% endif %}
-                            <button class="px-3 py-2 bg-red-100 hover:bg-red-400 hover:text-white rounded-sm cursor-pointer shrink-0">
-                                {{ comp.actionIcon('delete') }}
-                            </button>
                         </div>
                     {% endfor %}
                 </div>

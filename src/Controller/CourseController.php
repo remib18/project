@@ -103,6 +103,7 @@ final class CourseController extends AbstractController
             ]);
 
         } catch (Exception $e) {
+            error_log($e->getMessage());
             if ($e instanceof AccessDeniedException) {
                 throw $e;
             }

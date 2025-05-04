@@ -8,9 +8,10 @@ namespace App\DTO;
 readonly class CourseActivityDTO
 {
     /**
+     * @param int $id Activity ID
      * @param string $title The activity title
      * @param string $desc Description or formatted time
-     * @param string $target URL target for the activity
+     * @param string|null $target URL target for the activity
      * @param string $action Action text (e.g., "View" or "Submit")
      * @param string|null $userDesc Optional pinned message
      * @param string $type Activity type
@@ -20,9 +21,10 @@ readonly class CourseActivityDTO
      * @param string|null $content Optional content
      */
     public function __construct(
+        public int       $id,
         public string  $title,
         public string  $desc,
-        public string  $target,
+        public ?string  $target,
         public string  $action,
         public ?string $userDesc,
         public string  $type,

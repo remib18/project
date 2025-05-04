@@ -63,15 +63,17 @@ class CourseFormatter
         $type = $activity->getType();
         $data = $activity->getData();
         $action = $type === 'document-submission' ? 'Déposer' : 'Voir';
+        $target = '/course/' . $courseSlug . '/activity/' . $activity->getId();
 
         return new CourseActivityDTO(
+            $activity->getId(),
             $activity->getName(),
             $formattedTime,
-            '/course/' . $courseSlug . '/activity/' . $activity->getId(),
+            $type !== 'message' ? $target : null,
             $action,
             $activity->isPinned() ? $activity->getPinnedMessage() : null,
             $type,
-            $data['icon'] ?? 'file-text',
+            $data['icon'] ?? 'file-unknown',
             $activity->isPinned(),
             $data['severity'] ?? null,
             $data['content'] ?? null
