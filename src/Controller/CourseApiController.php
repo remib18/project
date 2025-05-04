@@ -15,6 +15,7 @@ use App\Repository\CourseActivityRepository;
 use App\Repository\CourseGroupRepository;
 use App\Repository\CourseUnitRepository;
 use App\Repository\UserRepository;
+use App\Service\ImageUploadService;
 use App\Service\RequestValidator;
 use DateTime;
 use Doctrine\ORM\EntityManagerInterface;
@@ -38,6 +39,7 @@ final class CourseApiController extends AbstractApiController
     public function __construct(
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly CourseMapper $courseMapper,
+        private readonly ImageUploadService $imageUploadService
     ) {}
 
     /**
@@ -123,38 +125,56 @@ final class CourseApiController extends AbstractApiController
         RequestValidator $requestValidator
     ): JsonResponse {
         try {
-            // Validate request
-            $validation = $requestValidator->validateRequestDto(
-                $request,
-                CourseUnitRequest::class,
-                'course_creation'
-            );
+            // Get form data
+            $data = [
+                'name' => $request->request->get('name'),
+                'description' => $request->request->get('description'),
+                '_token' => $request->request->get('_token'),
+            ];
 
-            if (!$validation['isValid']) {
-                return $this->createErrorResponse(
-                    'Validation failed',
-                    Response::HTTP_BAD_REQUEST,
-                    $validation['errors']
-                );
+            // Get files
+            $files = $request->files->all();
+
+            // Create DTO
+            $dto = CourseUnitRequest::fromArray($data, $files);
+
+            // Validate CSRF token
+            if (!$this->csrfTokenManager->isTokenValid(new CsrfToken('course_creation', $dto->_token))) {
+                return $this->createErrorResponse('Invalid CSRF token');
             }
 
-            /** @var CourseUnitRequest $dto */
-            $dto = $validation['dto'];
+            // Validate DTO
+            $errors = $validator->validate($dto);
+            if (count($errors) > 0) {
+                return $this->createValidationErrorResponse($errors);
+            }
+
+            // Generate slug from name
+            $slug = $slugger->slug(strtolower($dto->name))->toString();
 
             // Create new course unit
             $courseUnit = new CourseUnit();
             $courseUnit->setName($dto->name);
             $courseUnit->setDescription($dto->description);
-            $courseUnit->setImage($dto->image);
-
-            // Generate slug from name
-            $slug = $slugger->slug(strtolower($dto->name))->toString();
             $courseUnit->setSlug($slug);
 
+            // Handle image upload
+            if ($dto->imageFile) {
+                try {
+                    $imagePath = $this->imageUploadService->uploadCourseImage($dto->imageFile, $slug);
+                    $courseUnit->setImage($imagePath);
+                } catch (\Exception $e) {
+                    return $this->createErrorResponse($e->getMessage());
+                }
+            } else {
+                // Use placeholder image when no file is uploaded
+                $courseUnit->setImage($this->imageUploadService->getPlaceholderPath());
+            }
+
             // Validate entity
-            $errors = $validator->validate($courseUnit);
-            if (count($errors) > 0) {
-                return $this->createValidationErrorResponse($errors);
+            $entityErrors = $validator->validate($courseUnit);
+            if (count($entityErrors) > 0) {
+                return $this->createValidationErrorResponse($entityErrors);
             }
 
             // Save to database
@@ -163,7 +183,6 @@ final class CourseApiController extends AbstractApiController
 
             // Return success response with created course
             $courseDTO = $this->courseMapper->mapCourseUnitToDTO($courseUnit);
-
             return $this->createSuccessResponse($courseDTO);
         } catch (Exception $e) {
             return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -183,6 +202,8 @@ final class CourseApiController extends AbstractApiController
      */
     #[IsGranted('ROLE_ADMIN')]
     #[Route('/{slug}', name: 'app_course_api_edit', methods: ['POST'])]
+    #[IsGranted('ROLE_ADMIN')]
+    #[Route('/{slug}', name: 'app_course_api_edit', methods: ['POST'])]
     public function edit(
         string $slug,
         Request $request,
@@ -192,42 +213,52 @@ final class CourseApiController extends AbstractApiController
         RequestValidator $requestValidator
     ): JsonResponse {
         try {
-            // Validate request
-            $validation = $requestValidator->validateRequestDto(
-                $request,
-                CourseUnitRequest::class,
-                'course_edition'
-            );
+            // Get form data
+            $data = [
+                'name' => $request->request->get('name'),
+                'description' => $request->request->get('description'),
+                '_token' => $request->request->get('_token'),
+            ];
 
-            if (!$validation['isValid']) {
-                return $this->createErrorResponse(
-                    'Validation failed',
-                    Response::HTTP_BAD_REQUEST,
-                    $validation['errors']
-                );
+            // Get files
+            $files = $request->files->all();
+
+            // Create DTO
+            $dto = CourseUnitRequest::fromArray($data, $files);
+
+            // Validate CSRF token
+            if (!$this->csrfTokenManager->isTokenValid(new CsrfToken('course_edition', $dto->_token))) {
+                return $this->createErrorResponse('Invalid CSRF token');
             }
 
-            /** @var CourseUnitRequest $dto */
-            $dto = $validation['dto'];
+            // Validate request
+            $errors = $validator->validate($dto);
+            if (count($errors) > 0) {
+                return $this->createValidationErrorResponse($errors);
+            }
 
-            // Find the course unit or throw an exception
+            // Find the course unit
             $courseUnit = $courseUnitRepository->findBySlugOrFail($slug);
 
             // Update course unit properties
-            if (isset($dto->name)) {
-                $courseUnit->setName($dto->name);
-            }
+            $courseUnit->setName($dto->name);
+            $courseUnit->setDescription($dto->description);
 
-            if (isset($dto->description)) {
-                $courseUnit->setDescription($dto->description);
-            }
+            // Handle image upload if new file is provided
+            if ($dto->imageFile) {
+                try {
+                    // Delete old image (only if it's not the placeholder)
+                    $oldImage = $courseUnit->getImage();
+                    if ($oldImage) {
+                        $this->imageUploadService->deleteCourseImage($oldImage);
+                    }
 
-            if (isset($dto->image)) {
-                $courseUnit->setImage($dto->image);
-            }
-
-            if (isset($dto->slug)) {
-                $courseUnit->setSlug($dto->slug);
+                    // Upload new image
+                    $imagePath = $this->imageUploadService->uploadCourseImage($dto->imageFile, $slug);
+                    $courseUnit->setImage($imagePath);
+                } catch (\Exception $e) {
+                    return $this->createErrorResponse($e->getMessage());
+                }
             }
 
             // Validate the entity
@@ -240,7 +271,6 @@ final class CourseApiController extends AbstractApiController
             $entityManager->flush();
 
             $courseDTO = $this->courseMapper->mapCourseUnitToDTO($courseUnit);
-
             return $this->createSuccessResponse($courseDTO);
         } catch (Exception $e) {
             return $this->createErrorResponse($e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -281,6 +311,12 @@ final class CourseApiController extends AbstractApiController
 
             // Find the course unit or throw an exception
             $courseUnit = $courseUnitRepository->findBySlugOrFail($slug);
+
+            // Delete course image
+            $image = $courseUnit->getImage();
+            if ($image) {
+                $this->imageUploadService->deleteCourseImage($image);
+            }
 
             // Check if there are any groups that should be deleted first
             $groups = $courseUnit->getGroups();
