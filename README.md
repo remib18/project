@@ -5,10 +5,7 @@ The goal of this project is to create a simplified version of the Moodle web app
 
 ## ⚠️ Important notice ⚠️
 
-This project is under active development and is not yet finished. ***It is not ready for production use***.
-
-As of now, we are mainly working on the frontend part of the project. The backend is not yet fully implemented.
-A noticeable exemple is the fact that we use a lot of **hardcoded data**, and we **disabled access checks** in order to be able to work on the frontend part of the project.
+This project is not maintained and is not yet finished. ***It is not ready for production use***.
 
 ## Team members
 
